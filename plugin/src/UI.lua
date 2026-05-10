@@ -253,9 +253,31 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		prevBtn.AutoButtonColor = currentIndex > 0
 		prevBtn.BackgroundColor3 = if currentIndex > 0 then ROW else Color3.fromRGB(34, 34, 34)
 
-		nextBtn.Active = currentIndex < #lesson.steps
-		nextBtn.AutoButtonColor = currentIndex < #lesson.steps
-		nextBtn.BackgroundColor3 = if currentIndex < #lesson.steps then ACCENT else Color3.fromRGB(34, 34, 34)
+		-- On the step that would advance us to the end, swap Next for a
+		-- terminal "Finish & Playtest" button.
+		local isLastPreview = currentIndex < #lesson.steps
+			and (currentIndex + 1) == #lesson.steps
+		local isComplete = currentIndex >= #lesson.steps
+
+		if isLastPreview then
+			nextBtn.Text = "▶ Finish & Playtest"
+			nextBtn.Size = UDim2.new(0, 160, 1, 0)
+			nextBtn.Active = true
+			nextBtn.AutoButtonColor = true
+			nextBtn.BackgroundColor3 = Color3.fromRGB(90, 150, 90)
+		elseif isComplete then
+			nextBtn.Text = "▶ Playtest"
+			nextBtn.Size = UDim2.new(0, 160, 1, 0)
+			nextBtn.Active = true
+			nextBtn.AutoButtonColor = true
+			nextBtn.BackgroundColor3 = Color3.fromRGB(90, 150, 90)
+		else
+			nextBtn.Text = "Next ▶"
+			nextBtn.Size = UDim2.new(0, 90, 1, 0)
+			nextBtn.Active = true
+			nextBtn.AutoButtonColor = true
+			nextBtn.BackgroundColor3 = ACCENT
+		end
 	end
 
 	backBtn.Activated:Connect(function()
@@ -269,8 +291,22 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		onBack()
 	end)
 
+	local function startPlaytest()
+		-- There's no official plugin API to launch play mode from edit
+		-- mode, so we do the best we can: surface a clear prompt telling
+		-- the reader to hit Play, and pin the button label so a repeat
+		-- click keeps nudging rather than silently no-op'ing.
+		print(`[{lesson.id}] Tutorial complete — press F5 (or the Play button in Studio's toolbar) to test it.`)
+		counter.Text = `Complete — press F5 to play ▶`
+		body.Text = (lesson.steps[#lesson.steps].body or "") ..
+			"\n\n— Press F5 (or the Play button) in Studio to try the build."
+	end
+
 	nextBtn.Activated:Connect(function()
-		if currentIndex >= #lesson.steps then return end
+		if currentIndex >= #lesson.steps then
+			startPlaytest()
+			return
+		end
 		local step = lesson.steps[currentIndex + 1]
 		local ok, undoOrErr = pcall(Apply.applyStep, lesson.id, step)
 		if not ok then
@@ -280,6 +316,9 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		currentIndex += 1
 		undoStack[currentIndex] = undoOrErr
 		render()
+		if currentIndex >= #lesson.steps then
+			startPlaytest()
+		end
 	end)
 
 	prevBtn.Activated:Connect(function()
