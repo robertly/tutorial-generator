@@ -44,11 +44,14 @@ cadence:
   beat.
 - `prompt` steps — use sparingly, for "the best way to extend this is to ask
   Assistant." One per lesson, usually near the end.
-- **The last step's `body`** should describe what the reader will see when
-  they press Play — the plugin relabels its Next button to "▶ Finish &
-  Playtest" on the final step, so the body is the playtest's expected-
-  outcome caption. It can be any step type; often a `narrative`, sometimes
-  a `prompt` if the last act is to hand off to Assistant.
+- **Last step: always a `narrative` playtest step.** Conventional id
+  `sN-playtest`. Its body tells the reader to press Play (F5) and
+  describes what they should see, hear, or do to verify the build works.
+  The plugin relabels its Next button to "✓ Finish" on this step; clicking
+  it focuses the 3D viewport so the reader can immediately press F5.
+  Example body: "Press ▶ Play (or F5). Walk your character onto the
+  emitter — you should see 'Ray hit: ...' print in the Output window each
+  time you step on it. Shift+F5 to stop."
 
 ### `body` content
 

@@ -123,13 +123,18 @@ emitter.Touched:Connect(onTouch)
 		{
 			id = "s6-continuous",
 			type = "prompt",
-			body = "Make the ray fire continuously instead of only on Touched — a good moment to hand off to Assistant. After applying, press Playtest to try it: walk onto the emitter and watch the Output window.",
+			body = "Make the ray fire continuously instead of only on Touched — a good moment to hand off to Assistant.",
 			suggestedPrompt = "Modify Workspace.Emitter.Handler so the ray fires every 0.5 seconds using a while loop and task.wait, instead of firing on Touched. When the ray hits Workspace.Target, print 'Target spotted!'. Keep the RaycastParams exclusion for the emitter itself.",
 			focus = {
 				script = {
 					path = "Workspace.Emitter.Handler",
 				},
 			},
+		},
+		{
+			id = "s7-playtest",
+			type = "narrative",
+			body = "Press ▶ Play (or F5). Walk your character onto the Emitter — you should see a line like 'Ray hit: Workspace.Target at ...' print in the Output window each time you step on it. Shift+F5 to stop.",
 		},
 	},
 }
@@ -201,13 +206,18 @@ end
 		{
 			id = "s4-try-tween",
 			type = "prompt",
-			body = "Hard color swaps are stark. Ask Assistant to smooth them out with TweenService. When applied, press Playtest — the cube should cycle red → green → blue on a loop.",
+			body = "Hard color swaps are stark. Ask Assistant to smooth them out with TweenService.",
 			suggestedPrompt = "Replace Workspace.Cycler.Cycle so the part tweens between the three colors over 1 second each using TweenService. Loop forever.",
 			focus = {
 				script = {
 					path = "Workspace.Cycler.Cycle",
 				},
 			},
+		},
+		{
+			id = "s5-playtest",
+			type = "narrative",
+			body = "Press ▶ Play (or F5). The Cycler cube should cycle red → green → blue → red ... about once per second. Shift+F5 to stop.",
 		},
 	},
 }

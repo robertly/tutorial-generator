@@ -253,21 +253,15 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		prevBtn.AutoButtonColor = currentIndex > 0
 		prevBtn.BackgroundColor3 = if currentIndex > 0 then ROW else Color3.fromRGB(34, 34, 34)
 
-		-- On the step that would advance us to the end, swap Next for a
-		-- terminal "Finish & Playtest" button.
+		-- On the last step (whether previewing or already applied), swap
+		-- Next for a terminal "Finish" button.
 		local isLastPreview = currentIndex < #lesson.steps
 			and (currentIndex + 1) == #lesson.steps
 		local isComplete = currentIndex >= #lesson.steps
 
-		if isLastPreview then
-			nextBtn.Text = "▶ Finish & Playtest"
-			nextBtn.Size = UDim2.new(0, 160, 1, 0)
-			nextBtn.Active = true
-			nextBtn.AutoButtonColor = true
-			nextBtn.BackgroundColor3 = Color3.fromRGB(90, 150, 90)
-		elseif isComplete then
-			nextBtn.Text = "▶ Playtest"
-			nextBtn.Size = UDim2.new(0, 160, 1, 0)
+		if isLastPreview or isComplete then
+			nextBtn.Text = "✓ Finish"
+			nextBtn.Size = UDim2.new(0, 110, 1, 0)
 			nextBtn.Active = true
 			nextBtn.AutoButtonColor = true
 			nextBtn.BackgroundColor3 = Color3.fromRGB(90, 150, 90)
@@ -291,22 +285,33 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		onBack()
 	end)
 
-	local function startPlaytest()
-		counter.Text = "Complete — starting playtest..."
-		-- Undocumented but used by Studio's Assistant plugin.
-		local ok, err = pcall(function()
-			local PlacesService = game:GetService("PlacesService")
-			;(PlacesService :: any):StartPlaySolo()
+	-- Give focus back to the 3D viewport by closing any open script docs
+	-- (so they stop covering the view) and selecting the first BasePart we
+	-- can find in Workspace so the viewport has something to orbit.
+	local function focusViewport()
+		pcall(function()
+			local ScriptEditorService = game:GetService("ScriptEditorService")
+			for _, doc in ipairs(ScriptEditorService:GetScriptDocuments()) do
+				if not doc:IsCommandBar() then
+					doc:CloseAsync()
+				end
+			end
 		end)
-		if not ok then
-			warn(`[{lesson.id}] couldn't start playtest: {err} — press F5 instead.`)
-			counter.Text = "Complete — press F5 to play ▶"
-		end
+		pcall(function()
+			local Selection = game:GetService("Selection")
+			for _, child in ipairs(workspace:GetDescendants()) do
+				if child:IsA("BasePart") then
+					Selection:Set({ child })
+					return
+				end
+			end
+			Selection:Set({})
+		end)
 	end
 
 	nextBtn.Activated:Connect(function()
 		if currentIndex >= #lesson.steps then
-			startPlaytest()
+			focusViewport()
 			return
 		end
 		local step = lesson.steps[currentIndex + 1]
@@ -319,7 +324,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		undoStack[currentIndex] = undoOrErr
 		render()
 		if currentIndex >= #lesson.steps then
-			startPlaytest()
+			focusViewport()
 		end
 	end)
 

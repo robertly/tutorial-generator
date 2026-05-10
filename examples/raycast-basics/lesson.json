@@ -129,6 +129,11 @@
           "path": "Workspace.Emitter.Handler"
         }
       }
+    },
+    {
+      "id": "s8-playtest",
+      "type": "narrative",
+      "body": "Press ▶ **Play** (or F5) to run the world. Walk your character onto\nthe emitter — you should see a line like `Ray hit: Workspace.Target\nat ...` print in the Output window each time you step on it.\nShift+F5 to stop.\n"
     }
   ]
 }

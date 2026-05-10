@@ -77,3 +77,10 @@ steps:
       Add a Script under Workspace.SignPost.Display.Headline that uses
       TweenService to pulse the TextLabel's TextTransparency between 0 and
       0.4 with a 1.5-second period, looping forever.
+
+  - id: s6-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (or F5). Walk around your SignPost — you should see
+      "WELCOME" rendered on the front face of the wooden board, readable
+      from any reasonable distance. Shift+F5 to stop.
