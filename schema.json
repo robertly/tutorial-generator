@@ -1,0 +1,353 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/rly/tutorial-generator/schema.json",
+  "title": "Tutorial Lesson Manifest",
+  "description": "Schema for lesson.yaml files produced by /tutorial-generate and consumed by the tutorial-plugin.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "title", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "description": "Manifest format version. Plugins refuse to run unknown versions.",
+      "const": 1
+    },
+    "id": {
+      "description": "Stable slug for this lesson. Lowercase, hyphen-separated.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "title": {
+      "description": "Short human-readable title.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "goal": {
+      "description": "One-sentence summary of what the reader will learn.",
+      "type": "string"
+    },
+    "prerequisites": {
+      "description": "Lesson IDs the reader should complete first.",
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "uniqueItems": true
+    },
+    "tags": {
+      "description": "Free-form tags for filtering in the plugin library.",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "assets": {
+      "description": "Optional inventory of assets this lesson depends on.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/Asset" }
+    },
+    "steps": {
+      "description": "Ordered playback steps.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/Step" }
+    }
+  },
+
+  "definitions": {
+
+    "InstancePath": {
+      "description": "Dot-notation path starting at a DataModel service or descendant (e.g. 'Workspace.Emitter.Handler').",
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_][A-Za-z0-9_ -]*)*$",
+      "minLength": 1
+    },
+
+    "AssetId": {
+      "description": "Roblox asset reference URL.",
+      "type": "string",
+      "pattern": "^rbxassetid://\\d+$"
+    },
+
+    "AssetKind": {
+      "enum": ["model", "mesh", "image", "sound", "animation", "audio", "video", "other"]
+    },
+
+    "Asset": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "oneOf": [
+        { "required": ["source"], "not": { "required": ["assetId"] } },
+        { "required": ["assetId"], "not": { "required": ["source"] } }
+      ],
+      "properties": {
+        "kind": { "$ref": "#/definitions/AssetKind" },
+        "source": {
+          "description": "Place-local path to a pre-bundled asset under ReplicatedStorage.TutorialAssets.",
+          "$ref": "#/definitions/InstancePath"
+        },
+        "assetId": {
+          "description": "Roblox asset ID for assets not bundled in the shared place.",
+          "$ref": "#/definitions/AssetId"
+        },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+
+    "PropertyValue": {
+      "description": "Polymorphic property value. Plugin coerces based on the target property's declared type. Conventions: Vector3/Size as [x,y,z]; CFrame as 12-number array [px,py,pz, r00..r22]; Color3 as [r,g,b] in 0..1; UDim2 as [sx,ox,sy,oy]; EnumItem as string 'Enum.Material.Plastic'; Instance reference as a dot-path string (plugin resolves at apply time).",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 12
+        }
+      ]
+    },
+
+    "Props": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/PropertyValue" }
+    },
+
+    "Focus": {
+      "description": "Optional UI focus hint applied after the step runs.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "selection": {
+          "description": "Instance(s) to select in the Explorer.",
+          "oneOf": [
+            { "$ref": "#/definitions/InstancePath" },
+            {
+              "type": "array",
+              "items": { "$ref": "#/definitions/InstancePath" },
+              "minItems": 1
+            }
+          ]
+        },
+        "script": {
+          "description": "Open a script and highlight a line range.",
+          "type": "object",
+          "required": ["path"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "$ref": "#/definitions/InstancePath" },
+            "startLine": { "type": "integer", "minimum": 1 },
+            "endLine": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+
+    "StepId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+
+    "CommonStepFields": {
+      "description": "Base fields present on every step type.",
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/definitions/StepId" },
+        "body": {
+          "description": "Main narrative shown to the reader. Markdown allowed.",
+          "type": "string",
+          "minLength": 1
+        },
+        "explain": {
+          "description": "Optional deeper explanation, expandable in the UI.",
+          "type": "string"
+        },
+        "focus": { "$ref": "#/definitions/Focus" }
+      }
+    },
+
+    "Step": {
+      "oneOf": [
+        { "$ref": "#/definitions/NarrativeStep" },
+        { "$ref": "#/definitions/ScriptedStep" },
+        { "$ref": "#/definitions/CodeEditStep" },
+        { "$ref": "#/definitions/PromptStep" }
+      ]
+    },
+
+    "NarrativeStep": {
+      "type": "object",
+      "required": ["id", "type", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/StepId" },
+        "type": { "const": "narrative" },
+        "body": { "type": "string", "minLength": 1 },
+        "explain": { "type": "string" },
+        "focus": { "$ref": "#/definitions/Focus" }
+      }
+    },
+
+    "ScriptedStep": {
+      "type": "object",
+      "required": ["id", "type", "body", "action"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/StepId" },
+        "type": { "const": "scripted" },
+        "body": { "type": "string", "minLength": 1 },
+        "explain": { "type": "string" },
+        "focus": { "$ref": "#/definitions/Focus" },
+        "action": { "$ref": "#/definitions/Action" }
+      }
+    },
+
+    "CodeEditStep": {
+      "type": "object",
+      "required": ["id", "type", "body", "target", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/StepId" },
+        "type": { "const": "codeEdit" },
+        "body": { "type": "string", "minLength": 1 },
+        "explain": { "type": "string" },
+        "focus": { "$ref": "#/definitions/Focus" },
+        "target": {
+          "type": "object",
+          "required": ["path"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "$ref": "#/definitions/InstancePath" },
+            "create": {
+              "description": "Create the script if it doesn't exist yet.",
+              "type": "boolean",
+              "default": false
+            },
+            "class": {
+              "description": "Script class to use when creating. Ignored if create is false.",
+              "enum": ["Script", "LocalScript", "ModuleScript"]
+            }
+          }
+        },
+        "source": {
+          "description": "Full Source body of the script after this step. Never a diff or patch.",
+          "type": "string"
+        }
+      }
+    },
+
+    "PromptStep": {
+      "type": "object",
+      "required": ["id", "type", "body", "suggestedPrompt"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/StepId" },
+        "type": { "const": "prompt" },
+        "body": { "type": "string", "minLength": 1 },
+        "explain": { "type": "string" },
+        "focus": { "$ref": "#/definitions/Focus" },
+        "suggestedPrompt": {
+          "description": "Text the reader can copy into Studio's Assistant to reproduce this step's intent.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "Action": {
+      "oneOf": [
+        { "$ref": "#/definitions/CreateInstanceAction" },
+        { "$ref": "#/definitions/SetPropertyAction" },
+        { "$ref": "#/definitions/DeleteInstanceAction" },
+        { "$ref": "#/definitions/ParentToAction" },
+        { "$ref": "#/definitions/CloneFromAssetsAction" },
+        { "$ref": "#/definitions/InsertAssetAction" }
+      ]
+    },
+
+    "CreateInstanceAction": {
+      "type": "object",
+      "required": ["op", "class", "parent"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "const": "createInstance" },
+        "class": {
+          "description": "ClassName to instantiate (e.g. 'Part', 'MeshPart', 'Folder').",
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": { "$ref": "#/definitions/InstancePath" },
+        "props": { "$ref": "#/definitions/Props" }
+      }
+    },
+
+    "SetPropertyAction": {
+      "type": "object",
+      "required": ["op", "target", "property", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "const": "setProperty" },
+        "target": { "$ref": "#/definitions/InstancePath" },
+        "property": { "type": "string", "minLength": 1 },
+        "value": { "$ref": "#/definitions/PropertyValue" }
+      }
+    },
+
+    "DeleteInstanceAction": {
+      "type": "object",
+      "required": ["op", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "const": "deleteInstance" },
+        "target": { "$ref": "#/definitions/InstancePath" }
+      }
+    },
+
+    "ParentToAction": {
+      "type": "object",
+      "required": ["op", "target", "parent"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "const": "parentTo" },
+        "target": { "$ref": "#/definitions/InstancePath" },
+        "parent": { "$ref": "#/definitions/InstancePath" }
+      }
+    },
+
+    "CloneFromAssetsAction": {
+      "type": "object",
+      "required": ["op", "source", "parent"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "const": "cloneFromAssets" },
+        "source": {
+          "description": "Path under ReplicatedStorage.TutorialAssets to clone.",
+          "$ref": "#/definitions/InstancePath"
+        },
+        "parent": { "$ref": "#/definitions/InstancePath" },
+        "name": {
+          "description": "Optional rename after cloning.",
+          "type": "string"
+        }
+      }
+    },
+
+    "InsertAssetAction": {
+      "type": "object",
+      "required": ["op", "assetId", "parent"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "const": "insertAsset" },
+        "assetId": { "$ref": "#/definitions/AssetId" },
+        "parent": { "$ref": "#/definitions/InstancePath" },
+        "name": { "type": "string" }
+      }
+    }
+  }
+}

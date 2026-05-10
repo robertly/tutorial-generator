@@ -1,0 +1,4 @@
+.DS_Store
+*.rbxlx.lock
+*.rbxm
+plugin/rokit.toml.lock
