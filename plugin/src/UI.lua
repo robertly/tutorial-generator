@@ -1,13 +1,18 @@
--- Native Instance-based UI. Two views:
+-- Native Instance-based UI. Three views:
 --   Library  — list of lessons. Click one to open.
 --   Lesson   — active playback: title, step counter, body, optional diff,
 --              optional prompt, Prev/Next/Reset buttons.
+--   Settings — paste a lesson URL to fetch and add to the library.
 --
 -- Restart in a fresh (empty) place before running a lesson; undo/reset
 -- only reverse steps the plugin applied itself.
 
 local Apply = require(script.Parent.Playback.Apply)
 local Diff = require(script.Parent.Playback.Diff)
+local Fetch = require(script.Parent.Fetch)
+
+local SETTING_URLS = "TutorialPlugin_LessonUrls"
+local SETTING_LESSONS = "TutorialPlugin_CachedLessons"
 
 local BG = Color3.fromRGB(40, 40, 40)
 local PANEL = Color3.fromRGB(32, 32, 32)
@@ -308,7 +313,7 @@ end
 -- Library view
 -- ============================================================
 
-local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> ())
+local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> (), onSettings: () -> ())
 	for _, child in ipairs(parent:GetChildren()) do
 		child:Destroy()
 	end
@@ -326,16 +331,38 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = root
 
+	local header = Instance.new("Frame")
+	header.LayoutOrder = 1
+	header.BackgroundTransparency = 1
+	header.Size = UDim2.new(1, 0, 0, 26)
+	header.Parent = root
+
+	local headerLayout = Instance.new("UIListLayout")
+	headerLayout.FillDirection = Enum.FillDirection.Horizontal
+	headerLayout.Padding = UDim.new(0, 8)
+	headerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	headerLayout.Parent = header
+
 	local title = Instance.new("TextLabel")
-	title.LayoutOrder = 1
+	title.Size = UDim2.new(1, -90, 1, 0)
 	title.BackgroundTransparency = 1
-	title.Size = UDim2.new(1, 0, 0, 24)
 	title.Font = Enum.Font.GothamBold
 	title.TextSize = 16
 	title.TextColor3 = TEXT
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.Text = "Tutorials"
-	title.Parent = root
+	title.Parent = header
+
+	local settingsBtn = Instance.new("TextButton")
+	settingsBtn.Size = UDim2.new(0, 82, 1, 0)
+	settingsBtn.BackgroundColor3 = ROW
+	settingsBtn.Font = Enum.Font.Gotham
+	settingsBtn.TextSize = 12
+	settingsBtn.TextColor3 = TEXT
+	settingsBtn.Text = "⚙ Fetch..."
+	settingsBtn.Parent = header
+	corner(settingsBtn, 4)
+	settingsBtn.Activated:Connect(onSettings)
 
 	local subtitle = Instance.new("TextLabel")
 	subtitle.LayoutOrder = 2
@@ -411,15 +438,183 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 end
 
 -- ============================================================
+-- Settings view
+-- ============================================================
+
+local function showSettings(parent: GuiObject, plugin: Plugin, onBack: () -> (), onAdded: (lesson: any) -> ())
+	for _, child in ipairs(parent:GetChildren()) do
+		child:Destroy()
+	end
+
+	local root = Instance.new("Frame")
+	root.BackgroundColor3 = BG
+	root.Size = UDim2.fromScale(1, 1)
+	root.BorderSizePixel = 0
+	root.Parent = parent
+	pad(root, 12, 12, 12, 12)
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = root
+
+	-- Header with back + title
+	local header = Instance.new("Frame")
+	header.LayoutOrder = 1
+	header.BackgroundTransparency = 1
+	header.Size = UDim2.new(1, 0, 0, 26)
+	header.Parent = root
+
+	local headerLayout = Instance.new("UIListLayout")
+	headerLayout.FillDirection = Enum.FillDirection.Horizontal
+	headerLayout.Padding = UDim.new(0, 8)
+	headerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	headerLayout.Parent = header
+
+	local backBtn = Instance.new("TextButton")
+	backBtn.Size = UDim2.new(0, 52, 1, 0)
+	backBtn.BackgroundColor3 = ROW
+	backBtn.Font = Enum.Font.Gotham
+	backBtn.TextSize = 12
+	backBtn.TextColor3 = TEXT
+	backBtn.Text = "◀ Back"
+	backBtn.Parent = header
+	corner(backBtn, 4)
+	backBtn.Activated:Connect(onBack)
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, -60, 1, 0)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.GothamBold
+	title.TextSize = 15
+	title.TextColor3 = TEXT
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Text = "Fetch a lesson"
+	title.Parent = header
+
+	local help = Instance.new("TextLabel")
+	help.LayoutOrder = 2
+	help.BackgroundTransparency = 1
+	help.Size = UDim2.new(1, 0, 0, 32)
+	help.Font = Enum.Font.Gotham
+	help.TextSize = 12
+	help.TextColor3 = MUTED
+	help.TextXAlignment = Enum.TextXAlignment.Left
+	help.TextYAlignment = Enum.TextYAlignment.Top
+	help.TextWrapped = true
+	help.Text = "Paste a URL to a lesson.json conforming to schema.json. Saved lessons persist across Studio sessions."
+	help.Parent = root
+
+	local urlBox = Instance.new("TextBox")
+	urlBox.LayoutOrder = 3
+	urlBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	urlBox.BorderSizePixel = 0
+	urlBox.Size = UDim2.new(1, 0, 0, 28)
+	urlBox.Font = Enum.Font.Code
+	urlBox.TextSize = 12
+	urlBox.TextColor3 = TEXT
+	urlBox.TextXAlignment = Enum.TextXAlignment.Left
+	urlBox.PlaceholderText = "https://raw.githubusercontent.com/.../lesson.json"
+	urlBox.ClearTextOnFocus = false
+	urlBox.Text = ""
+	urlBox.Parent = root
+	pad(urlBox, 6, 8, 6, 8)
+
+	local fetchBtn = Instance.new("TextButton")
+	fetchBtn.LayoutOrder = 4
+	fetchBtn.Size = UDim2.new(0, 100, 0, 28)
+	fetchBtn.BackgroundColor3 = ACCENT
+	fetchBtn.BorderSizePixel = 0
+	fetchBtn.Font = Enum.Font.Gotham
+	fetchBtn.TextSize = 13
+	fetchBtn.TextColor3 = TEXT
+	fetchBtn.Text = "Fetch"
+	fetchBtn.Parent = root
+	corner(fetchBtn, 4)
+
+	local status = Instance.new("TextLabel")
+	status.LayoutOrder = 5
+	status.BackgroundTransparency = 1
+	status.Size = UDim2.new(1, 0, 0, 32)
+	status.Font = Enum.Font.Gotham
+	status.TextSize = 12
+	status.TextColor3 = MUTED
+	status.TextXAlignment = Enum.TextXAlignment.Left
+	status.TextYAlignment = Enum.TextYAlignment.Top
+	status.TextWrapped = true
+	status.Text = ""
+	status.Parent = root
+
+	fetchBtn.Activated:Connect(function()
+		local url = urlBox.Text
+		if url == "" then return end
+		status.Text = "Fetching..."
+		status.TextColor3 = MUTED
+
+		task.spawn(function()
+			local lesson, err = Fetch.fromUrl(url)
+			if not lesson then
+				status.TextColor3 = Color3.fromRGB(210, 100, 100)
+				status.Text = `Failed: {err}`
+				return
+			end
+
+			-- Persist URL + lesson.
+			local urls = plugin:GetSetting(SETTING_URLS) or {}
+			local cached = plugin:GetSetting(SETTING_LESSONS) or {}
+			local replaced = false
+			for i, u in ipairs(urls) do
+				if u == url then
+					cached[i] = lesson
+					replaced = true
+					break
+				end
+			end
+			if not replaced then
+				table.insert(urls, url)
+				table.insert(cached, lesson)
+			end
+			plugin:SetSetting(SETTING_URLS, urls)
+			plugin:SetSetting(SETTING_LESSONS, cached)
+
+			status.TextColor3 = Color3.fromRGB(120, 200, 120)
+			status.Text = `Added "{lesson.title}" ({#lesson.steps} steps).`
+			onAdded(lesson)
+		end)
+	end)
+end
+
+-- ============================================================
 -- Router
 -- ============================================================
 
-local function create(parent: GuiObject, lessons)
-	local function goLibrary()
-		showLibrary(parent, lessons, function(lesson)
+local function create(parent: GuiObject, plugin: Plugin, builtinLessons)
+	local cached = plugin:GetSetting(SETTING_LESSONS) or {}
+
+	local function allLessons()
+		local out = {}
+		for _, l in ipairs(builtinLessons) do table.insert(out, l) end
+		for _, l in ipairs(cached) do table.insert(out, l) end
+		return out
+	end
+
+	local goLibrary
+	local goSettings
+	goLibrary = function()
+		showLibrary(parent, allLessons(), function(lesson)
 			showLesson(parent, lesson, goLibrary)
+		end, function()
+			goSettings()
 		end)
 	end
+	goSettings = function()
+		showSettings(parent, plugin, goLibrary, function(lesson)
+			-- Refresh cache from settings after add.
+			cached = plugin:GetSetting(SETTING_LESSONS) or {}
+		end)
+	end
+
 	goLibrary()
 end
 

@@ -28,7 +28,7 @@ openButton.Click:Connect(function()
 	widget.Enabled = not widget.Enabled
 end)
 
-UI.create(widget, Lessons)
+UI.create(widget, plugin, Lessons)
 
 plugin.Unloading:Connect(function()
 	widget:Destroy()
