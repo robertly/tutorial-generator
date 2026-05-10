@@ -148,3 +148,11 @@ steps:
     focus:
       script:
         path: "Workspace.Emitter.Handler"
+
+  - id: s8-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** to run the world. Walk your character onto the
+      emitter — you should see a line like `Ray hit: Workspace.Target at
+      ...` print in the Output window each time you step on it. Shift+F5
+      to stop.

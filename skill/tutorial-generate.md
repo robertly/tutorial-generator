@@ -1,14 +1,13 @@
 ---
-description: Read a sample's README.md and source code, produce lesson.yaml + lesson.json conforming to schema.json. Stateless — never reads its own previous output.
+description: Read a sample's README.md and source code, produce lesson.yaml conforming to schema.json. Stateless — never reads its own previous output.
 ---
 
 # /tutorial-generate
 
 Reads a tutorial sample's `README.md` + source code, writes `lesson.yaml`
-(human-authoring form) AND `lesson.json` (plugin wire format), both
 conforming to `schema.json`. Stateless: **never read the previous
-`lesson.yaml` or `lesson.json`** — regenerate from README + source every
-time. This prevents AI drift from re-ingesting our own output.
+`lesson.yaml`** — regenerate from README + source every time. This
+prevents AI drift from re-ingesting our own output.
 
 ## Inputs
 
@@ -19,10 +18,7 @@ time. This prevents AI drift from re-ingesting our own output.
 
 ## Output
 
-- `<sample>/lesson.yaml` — human-facing form; overwrite existing.
-- `<sample>/lesson.json` — wire form consumed by the Studio plugin over
-  HTTPS. Same content, JSON-encoded. Must be kept in sync with the YAML.
-  Generate both in the same run; never emit only one.
+- `<sample>/lesson.yaml` — overwrite existing. The schema is version 1.
 
 ## Authoring rules
 
@@ -48,6 +44,13 @@ cadence:
   beat.
 - `prompt` steps — use sparingly, for "the best way to extend this is to ask
   Assistant." One per lesson, usually near the end.
+- **Last step: always a `narrative` "finish and playtest" step.** Conventionally
+  id `sN-playtest` (or `s-playtest`). Its body tells the reader to press
+  Play and describes what they should see, hear, or do to verify the build
+  works. Even if an earlier `prompt` step handed extension work to Assistant,
+  the lesson still ends with this playtest narrative — do not merge the two.
+  Example body: "Press ▶ Play. Walk onto the emitter — you should see 'Ray
+  hit: ...' in the Output window each time you step on it."
 
 ### `body` content
 

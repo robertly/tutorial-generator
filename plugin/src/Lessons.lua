@@ -131,6 +131,11 @@ emitter.Touched:Connect(onTouch)
 				},
 			},
 		},
+		{
+			id = "s7-playtest",
+			type = "narrative",
+			body = "Press ▶ Play. Walk your character onto the Emitter — you should see a line like 'Ray hit: Workspace.Target at ...' print in the Output window each time you step on it. Shift+F5 to stop.",
+		},
 	},
 }
 
@@ -208,6 +213,11 @@ end
 					path = "Workspace.Cycler.Cycle",
 				},
 			},
+		},
+		{
+			id = "s5-playtest",
+			type = "narrative",
+			body = "Press ▶ Play. The Cycler cube should cycle red → green → blue → red ... about once per second. Shift+F5 to stop.",
 		},
 	},
 }
