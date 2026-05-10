@@ -545,26 +545,74 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	settingsBtn.Font = Enum.Font.Gotham
 	settingsBtn.TextSize = 12
 	settingsBtn.TextColor3 = TEXT
-	settingsBtn.Text = "⚙ Fetch..."
+	settingsBtn.Text = "⚙ Manage"
 	settingsBtn.Parent = header
 	corner(settingsBtn, 4)
 	settingsBtn.Activated:Connect(onSettings)
 
+	local searchBox = Instance.new("TextBox")
+	searchBox.LayoutOrder = 2
+	searchBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	searchBox.BorderSizePixel = 0
+	searchBox.Size = UDim2.new(1, 0, 0, 28)
+	searchBox.Font = Enum.Font.Gotham
+	searchBox.TextSize = 13
+	searchBox.TextColor3 = TEXT
+	searchBox.TextXAlignment = Enum.TextXAlignment.Left
+	searchBox.PlaceholderText = "🔍 Search lessons..."
+	searchBox.Text = ""
+	searchBox.ClearTextOnFocus = false
+	searchBox.Parent = root
+	pad(searchBox, 6, 8, 6, 8)
+
+	-- Collect all unique tags
+	local tagSet: { [string]: true } = {}
+	for _, lesson in ipairs(lessons) do
+		for _, t in ipairs(lesson.tags or {}) do
+			tagSet[t] = true
+		end
+	end
+	local allTags: { string } = {}
+	for t in pairs(tagSet) do
+		table.insert(allTags, t)
+	end
+	table.sort(allTags)
+
+	local tagRow = Instance.new("ScrollingFrame")
+	tagRow.LayoutOrder = 3
+	tagRow.BackgroundTransparency = 1
+	tagRow.BorderSizePixel = 0
+	tagRow.Size = UDim2.new(1, 0, 0, 26)
+	tagRow.CanvasSize = UDim2.fromScale(0, 0)
+	tagRow.AutomaticCanvasSize = Enum.AutomaticSize.X
+	tagRow.ScrollBarThickness = 2
+	tagRow.ScrollingDirection = Enum.ScrollingDirection.X
+	tagRow.Parent = root
+	tagRow.Visible = #allTags > 0
+
+	local tagLayout = Instance.new("UIListLayout")
+	tagLayout.FillDirection = Enum.FillDirection.Horizontal
+	tagLayout.Padding = UDim.new(0, 4)
+	tagLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	tagLayout.Parent = tagRow
+
+	local selectedTag: string? = nil
+	local tagChips: { [string]: TextButton } = {}
+
 	local subtitle = Instance.new("TextLabel")
-	subtitle.LayoutOrder = 2
+	subtitle.LayoutOrder = 4
 	subtitle.BackgroundTransparency = 1
 	subtitle.Size = UDim2.new(1, 0, 0, 16)
 	subtitle.Font = Enum.Font.Gotham
 	subtitle.TextSize = 12
 	subtitle.TextColor3 = MUTED
 	subtitle.TextXAlignment = Enum.TextXAlignment.Left
-	subtitle.Text = `{#lessons} available`
 	subtitle.Parent = root
 
 	local list = Instance.new("ScrollingFrame")
-	list.LayoutOrder = 3
+	list.LayoutOrder = 5
 	list.BackgroundTransparency = 1
-	list.Size = UDim2.new(1, 0, 1, -48)
+	list.Size = UDim2.new(1, 0, 1, -120)
 	list.CanvasSize = UDim2.fromScale(0, 0)
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.ScrollBarThickness = 6
@@ -577,50 +625,107 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	listLayout.Parent = list
 
-	for i, lesson in ipairs(lessons) do
-		local row = Instance.new("TextButton")
-		row.LayoutOrder = i
-		row.Size = UDim2.new(1, -4, 0, 64)
-		row.BackgroundColor3 = ROW
-		row.BorderSizePixel = 0
-		row.Text = ""
-		row.Parent = list
-		corner(row, 4)
-		pad(row, 8, 10, 8, 10)
+	local function matchesFilter(lesson): boolean
+		if selectedTag then
+			local hit = false
+			for _, t in ipairs(lesson.tags or {}) do
+				if t == selectedTag then hit = true; break end
+			end
+			if not hit then return false end
+		end
+		local q = string.lower(searchBox.Text or "")
+		if q == "" then return true end
+		if string.find(string.lower(lesson.title or ""), q, 1, true) then return true end
+		if string.find(string.lower(lesson.id or ""), q, 1, true) then return true end
+		if string.find(string.lower(lesson.goal or ""), q, 1, true) then return true end
+		return false
+	end
 
-		row.MouseEnter:Connect(function() row.BackgroundColor3 = ROW_HOVER end)
-		row.MouseLeave:Connect(function() row.BackgroundColor3 = ROW end)
+	local function renderList()
+		for _, child in ipairs(list:GetChildren()) do
+			if not child:IsA("UIListLayout") then child:Destroy() end
+		end
 
-		local rowLayout = Instance.new("UIListLayout")
-		rowLayout.FillDirection = Enum.FillDirection.Vertical
-		rowLayout.Padding = UDim.new(0, 2)
-		rowLayout.Parent = row
+		local shown = 0
+		for i, lesson in ipairs(lessons) do
+			if not matchesFilter(lesson) then continue end
+			shown += 1
+			local row = Instance.new("TextButton")
+			row.LayoutOrder = i
+			row.Size = UDim2.new(1, -4, 0, 64)
+			row.BackgroundColor3 = ROW
+			row.BorderSizePixel = 0
+			row.Text = ""
+			row.Parent = list
+			corner(row, 4)
+			pad(row, 8, 10, 8, 10)
 
-		local titleLabel = Instance.new("TextLabel")
-		titleLabel.BackgroundTransparency = 1
-		titleLabel.Size = UDim2.new(1, 0, 0, 18)
-		titleLabel.Font = Enum.Font.GothamBold
-		titleLabel.TextSize = 14
-		titleLabel.TextColor3 = TEXT
-		titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-		titleLabel.Text = lesson.title
-		titleLabel.Parent = row
+			row.MouseEnter:Connect(function() row.BackgroundColor3 = ROW_HOVER end)
+			row.MouseLeave:Connect(function() row.BackgroundColor3 = ROW end)
 
-		local goalLabel = Instance.new("TextLabel")
-		goalLabel.BackgroundTransparency = 1
-		goalLabel.Size = UDim2.new(1, 0, 0, 16)
-		goalLabel.Font = Enum.Font.Gotham
-		goalLabel.TextSize = 12
-		goalLabel.TextColor3 = MUTED
-		goalLabel.TextXAlignment = Enum.TextXAlignment.Left
-		goalLabel.TextTruncate = Enum.TextTruncate.AtEnd
-		goalLabel.Text = lesson.goal or `{#lesson.steps} steps`
-		goalLabel.Parent = row
+			local rowLayout = Instance.new("UIListLayout")
+			rowLayout.FillDirection = Enum.FillDirection.Vertical
+			rowLayout.Padding = UDim.new(0, 2)
+			rowLayout.Parent = row
 
-		row.Activated:Connect(function()
-			onPick(lesson)
+			local titleLabel = Instance.new("TextLabel")
+			titleLabel.BackgroundTransparency = 1
+			titleLabel.Size = UDim2.new(1, 0, 0, 18)
+			titleLabel.Font = Enum.Font.GothamBold
+			titleLabel.TextSize = 14
+			titleLabel.TextColor3 = TEXT
+			titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+			titleLabel.Text = lesson.title
+			titleLabel.Parent = row
+
+			local goalLabel = Instance.new("TextLabel")
+			goalLabel.BackgroundTransparency = 1
+			goalLabel.Size = UDim2.new(1, 0, 0, 16)
+			goalLabel.Font = Enum.Font.Gotham
+			goalLabel.TextSize = 12
+			goalLabel.TextColor3 = MUTED
+			goalLabel.TextXAlignment = Enum.TextXAlignment.Left
+			goalLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			goalLabel.Text = lesson.goal or `{#lesson.steps} steps`
+			goalLabel.Parent = row
+
+			row.Activated:Connect(function()
+				onPick(lesson)
+			end)
+		end
+
+		subtitle.Text = string.format("%d of %d", shown, #lessons)
+	end
+
+	local function refreshTagChips()
+		for tag, chip in pairs(tagChips) do
+			chip.BackgroundColor3 = if selectedTag == tag then ACCENT else ROW
+		end
+	end
+
+	for _, tag in ipairs(allTags) do
+		local chip = Instance.new("TextButton")
+		chip.Size = UDim2.new(0, 0, 1, 0)
+		chip.AutomaticSize = Enum.AutomaticSize.X
+		chip.BackgroundColor3 = ROW
+		chip.BorderSizePixel = 0
+		chip.Font = Enum.Font.Gotham
+		chip.TextSize = 11
+		chip.TextColor3 = TEXT
+		chip.Text = tag
+		chip.Parent = tagRow
+		corner(chip, 11)
+		pad(chip, 0, 10, 0, 10)
+		tagChips[tag] = chip
+		chip.Activated:Connect(function()
+			selectedTag = if selectedTag == tag then nil else tag
+			refreshTagChips()
+			renderList()
 		end)
 	end
+
+	searchBox:GetPropertyChangedSignal("Text"):Connect(renderList)
+	renderList()
 end
 
 -- ============================================================
@@ -753,6 +858,8 @@ local function showSettings(parent: GuiObject, plugin: Plugin, onBack: () -> (),
 	status.Text = ""
 	status.Parent = root
 
+	local renderManageList: () -> ()
+
 	local function persistLesson(url: string, lesson)
 		local urls = plugin:GetSetting(SETTING_URLS) or {}
 		local cached = plugin:GetSetting(SETTING_LESSONS) or {}
@@ -818,8 +925,126 @@ local function showSettings(parent: GuiObject, plugin: Plugin, onBack: () -> (),
 				status.TextColor3 = Color3.fromRGB(120, 200, 120)
 				status.Text = `Added {#lessons} lesson(s) from repo.`
 			end
+			-- Refresh the manage list below.
+			renderManageList()
 		end)
 	end)
+
+	-- ---- Manage: list of cached lessons with remove buttons --------------
+	local manageTitle = Instance.new("TextLabel")
+	manageTitle.LayoutOrder = 6
+	manageTitle.BackgroundTransparency = 1
+	manageTitle.Size = UDim2.new(1, 0, 0, 20)
+	manageTitle.Font = Enum.Font.GothamBold
+	manageTitle.TextSize = 13
+	manageTitle.TextColor3 = TEXT
+	manageTitle.TextXAlignment = Enum.TextXAlignment.Left
+	manageTitle.Text = "Fetched lessons"
+	manageTitle.Parent = root
+
+	local manageList = Instance.new("ScrollingFrame")
+	manageList.LayoutOrder = 7
+	manageList.BackgroundTransparency = 1
+	manageList.BorderSizePixel = 0
+	manageList.Size = UDim2.new(1, 0, 0, 160)
+	manageList.CanvasSize = UDim2.fromScale(0, 0)
+	manageList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	manageList.ScrollBarThickness = 4
+	manageList.Parent = root
+
+	local manageLayout = Instance.new("UIListLayout")
+	manageLayout.FillDirection = Enum.FillDirection.Vertical
+	manageLayout.Padding = UDim.new(0, 4)
+	manageLayout.Parent = manageList
+
+	local clearAllBtn = Instance.new("TextButton")
+	clearAllBtn.LayoutOrder = 8
+	clearAllBtn.Size = UDim2.new(0, 120, 0, 24)
+	clearAllBtn.BackgroundColor3 = Color3.fromRGB(160, 70, 70)
+	clearAllBtn.BorderSizePixel = 0
+	clearAllBtn.Font = Enum.Font.Gotham
+	clearAllBtn.TextSize = 12
+	clearAllBtn.TextColor3 = TEXT
+	clearAllBtn.Text = "Clear all"
+	clearAllBtn.Parent = root
+	corner(clearAllBtn, 4)
+
+	renderManageList = function()
+		for _, child in ipairs(manageList:GetChildren()) do
+			if not child:IsA("UIListLayout") then child:Destroy() end
+		end
+		local urls = plugin:GetSetting(SETTING_URLS) or {}
+		local cached = plugin:GetSetting(SETTING_LESSONS) or {}
+		if #urls == 0 then
+			local empty = Instance.new("TextLabel")
+			empty.Size = UDim2.new(1, 0, 0, 24)
+			empty.BackgroundTransparency = 1
+			empty.Font = Enum.Font.Gotham
+			empty.TextSize = 12
+			empty.TextColor3 = MUTED
+			empty.TextXAlignment = Enum.TextXAlignment.Left
+			empty.Text = "(none)"
+			empty.Parent = manageList
+			return
+		end
+		for i, url in ipairs(urls) do
+			local row = Instance.new("Frame")
+			row.Size = UDim2.new(1, -4, 0, 26)
+			row.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+			row.BorderSizePixel = 0
+			row.Parent = manageList
+			corner(row, 3)
+			pad(row, 0, 6, 0, 8)
+
+			local rowLayout = Instance.new("UIListLayout")
+			rowLayout.FillDirection = Enum.FillDirection.Horizontal
+			rowLayout.Padding = UDim.new(0, 6)
+			rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+			rowLayout.Parent = row
+
+			local lessonTitle = Instance.new("TextLabel")
+			lessonTitle.Size = UDim2.new(1, -40, 1, 0)
+			lessonTitle.BackgroundTransparency = 1
+			lessonTitle.Font = Enum.Font.Gotham
+			lessonTitle.TextSize = 12
+			lessonTitle.TextColor3 = TEXT
+			lessonTitle.TextXAlignment = Enum.TextXAlignment.Left
+			lessonTitle.TextTruncate = Enum.TextTruncate.AtEnd
+			local lesson = cached[i]
+			lessonTitle.Text = if lesson then lesson.title else url
+			lessonTitle.Parent = row
+
+			local rm = Instance.new("TextButton")
+			rm.Size = UDim2.new(0, 28, 0, 22)
+			rm.BackgroundColor3 = Color3.fromRGB(120, 60, 60)
+			rm.BorderSizePixel = 0
+			rm.Font = Enum.Font.GothamBold
+			rm.TextSize = 12
+			rm.TextColor3 = TEXT
+			rm.Text = "✕"
+			rm.Parent = row
+			corner(rm, 3)
+			rm.Activated:Connect(function()
+				local us = plugin:GetSetting(SETTING_URLS) or {}
+				local cs = plugin:GetSetting(SETTING_LESSONS) or {}
+				table.remove(us, i)
+				table.remove(cs, i)
+				plugin:SetSetting(SETTING_URLS, us)
+				plugin:SetSetting(SETTING_LESSONS, cs)
+				renderManageList()
+				onAdded(nil :: any)  -- signal router to refresh
+			end)
+		end
+	end
+
+	clearAllBtn.Activated:Connect(function()
+		plugin:SetSetting(SETTING_URLS, {})
+		plugin:SetSetting(SETTING_LESSONS, {})
+		renderManageList()
+		onAdded(nil :: any)
+	end)
+
+	renderManageList()
 end
 
 -- ============================================================
