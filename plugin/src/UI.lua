@@ -292,14 +292,16 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end)
 
 	local function startPlaytest()
-		-- There's no official plugin API to launch play mode from edit
-		-- mode, so we do the best we can: surface a clear prompt telling
-		-- the reader to hit Play, and pin the button label so a repeat
-		-- click keeps nudging rather than silently no-op'ing.
-		print(`[{lesson.id}] Tutorial complete — press F5 (or the Play button in Studio's toolbar) to test it.`)
-		counter.Text = `Complete — press F5 to play ▶`
-		body.Text = (lesson.steps[#lesson.steps].body or "") ..
-			"\n\n— Press F5 (or the Play button) in Studio to try the build."
+		counter.Text = "Complete — starting playtest..."
+		-- Undocumented but used by Studio's Assistant plugin.
+		local ok, err = pcall(function()
+			local PlacesService = game:GetService("PlacesService")
+			;(PlacesService :: any):StartPlaySolo()
+		end)
+		if not ok then
+			warn(`[{lesson.id}] couldn't start playtest: {err} — press F5 instead.`)
+			counter.Text = "Complete — press F5 to play ▶"
+		end
 	end
 
 	nextBtn.Activated:Connect(function()
