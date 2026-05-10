@@ -116,9 +116,27 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	counter.TextXAlignment = Enum.TextXAlignment.Left
 	counter.Parent = root
 
+	-- ---- Step strip (clickable dots for scrubbing) -----------------------
+	local stripScroll = Instance.new("ScrollingFrame")
+	stripScroll.LayoutOrder = 3
+	stripScroll.BackgroundTransparency = 1
+	stripScroll.BorderSizePixel = 0
+	stripScroll.Size = UDim2.new(1, 0, 0, 30)
+	stripScroll.CanvasSize = UDim2.fromScale(0, 0)
+	stripScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
+	stripScroll.ScrollBarThickness = 4
+	stripScroll.ScrollingDirection = Enum.ScrollingDirection.X
+	stripScroll.Parent = root
+
+	local stripLayout = Instance.new("UIListLayout")
+	stripLayout.FillDirection = Enum.FillDirection.Horizontal
+	stripLayout.Padding = UDim.new(0, 4)
+	stripLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	stripLayout.Parent = stripScroll
+
 	-- ---- Step body -------------------------------------------------------
 	local body = Instance.new("TextLabel")
-	body.LayoutOrder = 3
+	body.LayoutOrder = 4
 	body.BackgroundColor3 = PANEL
 	body.BorderSizePixel = 0
 	body.Size = UDim2.new(1, 0, 0, 110)
@@ -133,7 +151,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 
 	-- ---- Diff view (codeEdit steps) --------------------------------------
 	local diffScroll = Instance.new("ScrollingFrame")
-	diffScroll.LayoutOrder = 4
+	diffScroll.LayoutOrder = 5
 	diffScroll.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	diffScroll.BorderSizePixel = 0
 	diffScroll.Size = UDim2.new(1, 0, 0, 220)
@@ -159,7 +177,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 
 	-- ---- Prompt box (prompt steps) --------------------------------------
 	local promptBox = Instance.new("TextBox")
-	promptBox.LayoutOrder = 5
+	promptBox.LayoutOrder = 6
 	promptBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	promptBox.BorderSizePixel = 0
 	promptBox.Size = UDim2.new(1, 0, 0, 110)
@@ -177,7 +195,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 
 	-- ---- Button row ------------------------------------------------------
 	local buttonRow = Instance.new("Frame")
-	buttonRow.LayoutOrder = 6
+	buttonRow.LayoutOrder = 7
 	buttonRow.BackgroundTransparency = 1
 	buttonRow.Size = UDim2.new(1, 0, 0, 32)
 	buttonRow.Parent = root
@@ -275,6 +293,24 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 			nextBtn.AutoButtonColor = true
 			nextBtn.BackgroundColor3 = ACCENT
 		end
+
+		-- Strip: highlight applied steps, outline the previewed-next one.
+		for i, btn in ipairs(stripButtons) do
+			local base = typeColor(lesson.steps[i].type)
+			if i <= currentIndex then
+				btn.BackgroundColor3 = base
+				btn.TextTransparency = 0
+				btn.BackgroundTransparency = 0
+			elseif i == previewIndex and not isComplete then
+				btn.BackgroundColor3 = base
+				btn.TextTransparency = 0
+				btn.BackgroundTransparency = 0.3
+			else
+				btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+				btn.TextTransparency = 0.4
+				btn.BackgroundTransparency = 0
+			end
+		end
 	end
 
 	backBtn.Activated:Connect(function()
@@ -321,6 +357,35 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		autoBtn.BackgroundColor3 = ROW
 	end
 
+	-- Step-type → strip-button tint
+	local function typeColor(stepType: string): Color3
+		if stepType == "narrative" then return Color3.fromRGB(110, 110, 120)
+		elseif stepType == "scripted" then return Color3.fromRGB(70, 110, 160)
+		elseif stepType == "codeEdit" then return Color3.fromRGB(140, 90, 160)
+		elseif stepType == "prompt" then return Color3.fromRGB(180, 130, 60)
+		else return Color3.fromRGB(90, 90, 90)
+		end
+	end
+
+	-- Build the step strip once.
+	local stripButtons: { TextButton } = {}
+	for i, step in ipairs(lesson.steps) do
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0, 26, 0, 26)
+		btn.BackgroundColor3 = typeColor(step.type)
+		btn.BorderSizePixel = 0
+		btn.Font = Enum.Font.GothamBold
+		btn.TextSize = 11
+		btn.TextColor3 = TEXT
+		btn.Text = tostring(i)
+		btn.AutoButtonColor = true
+		btn.Parent = stripScroll
+		corner(btn, 13)
+		table.insert(stripButtons, btn)
+	end
+
+	local scrubTo: (target: number) -> ()  -- forward declaration
+
 	local function applyNext(): boolean
 		if currentIndex >= #lesson.steps then return false end
 		local step = lesson.steps[currentIndex + 1]
@@ -333,6 +398,30 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		undoStack[currentIndex] = undoOrErr
 		render()
 		return true
+	end
+
+	-- Scrub to applied-step target (0 = nothing applied, N = steps[1..N]).
+	-- Implemented as replay-from-current-state: undo down to target or
+	-- apply up to target, never both, so this is linear in the delta.
+	scrubTo = function(target: number)
+		stopAutoplay()
+		target = math.max(0, math.min(target, #lesson.steps))
+		while currentIndex > target do
+			local undoFn = undoStack[currentIndex]
+			if undoFn then pcall(undoFn) end
+			undoStack[currentIndex] = nil
+			currentIndex -= 1
+		end
+		while currentIndex < target do
+			if not applyNext() then break end
+		end
+		render()
+	end
+
+	for i, btn in ipairs(stripButtons) do
+		btn.Activated:Connect(function()
+			scrubTo(i)
+		end)
 	end
 
 	nextBtn.Activated:Connect(function()
