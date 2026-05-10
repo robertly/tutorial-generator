@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "id": "surface-sign",
+  "title": "Surface sign",
+  "goal": "Put readable text on the face of a Part using SurfaceGui.",
+  "tags": [
+    "ui",
+    "beginner"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "A lot of Roblox worlds use in-world signage — quest markers, shop\nlabels, puzzle hints. The trick is `SurfaceGui`: it projects a\nregular 2D UI onto a chosen face of a Part. We'll build one.\n"
+    },
+    {
+      "id": "s2-create-post",
+      "type": "scripted",
+      "body": "Make a tall, flat Part to act as the sign body. Anchored so physics\nleaves it alone.\n",
+      "action": {
+        "op": "createInstance",
+        "class": "Part",
+        "parent": "Workspace",
+        "props": {
+          "Name": "SignPost",
+          "Anchored": true,
+          "Size": [
+            6,
+            4,
+            0.4
+          ],
+          "Position": [
+            0,
+            4,
+            0
+          ],
+          "Material": "Enum.Material.WoodPlanks",
+          "BrickColor": "Burlywood"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.SignPost"
+      }
+    },
+    {
+      "id": "s3-add-surfacegui",
+      "type": "scripted",
+      "body": "Add a SurfaceGui as a child of the Part. We set `Face = Front` so it\ndraws on the +Z face.\n",
+      "action": {
+        "op": "createInstance",
+        "class": "SurfaceGui",
+        "parent": "Workspace.SignPost",
+        "props": {
+          "Name": "Display",
+          "Face": "Enum.NormalId.Front",
+          "CanvasSize": [
+            400,
+            300
+          ],
+          "AlwaysOnTop": false
+        }
+      },
+      "focus": {
+        "selection": "Workspace.SignPost.Display"
+      }
+    },
+    {
+      "id": "s4-add-textlabel",
+      "type": "scripted",
+      "body": "Drop a TextLabel inside the SurfaceGui, filling it, with the headline text.\n",
+      "action": {
+        "op": "createInstance",
+        "class": "TextLabel",
+        "parent": "Workspace.SignPost.Display",
+        "props": {
+          "Name": "Headline",
+          "Size": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "Position": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "BackgroundTransparency": 1,
+          "Font": "Enum.Font.GothamBold",
+          "TextScaled": true,
+          "TextColor3": [
+            0.12,
+            0.08,
+            0.05
+          ],
+          "Text": "WELCOME"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.SignPost.Display.Headline"
+      }
+    },
+    {
+      "id": "s5-animate",
+      "type": "prompt",
+      "body": "Static signs are fine, but a gentle pulse reads much more alive.\nAsk Assistant to animate the text.\n",
+      "suggestedPrompt": "Add a Script under Workspace.SignPost.Display.Headline that uses\nTweenService to pulse the TextLabel's TextTransparency between 0 and\n0.4 with a 1.5-second period, looping forever.\n"
+    }
+  ]
+}
