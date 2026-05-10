@@ -1,6 +1,6 @@
 -- MVP: lessons embedded as Lua tables instead of fetched YAML.
--- Shape matches schema.json. Once the YAML parser + Fetch layer land, this
--- module becomes the offline fallback.
+-- Shape matches schema.json. Once the Fetch layer lands, these become the
+-- offline defaults; fetched lessons are appended on top.
 
 local raycastBasics = {
 	schemaVersion = 1,
@@ -134,6 +134,85 @@ emitter.Touched:Connect(onTouch)
 	},
 }
 
+local partColorCycle = {
+	schemaVersion = 1,
+	id = "part-color-cycle",
+	title = "Cycling a Part's color",
+	goal = "Animate a property on an anchored Part with a simple loop.",
+	tags = { "animation", "beginner" },
+
+	steps = {
+		{
+			id = "s1-intro",
+			type = "narrative",
+			body = "A lot of 'aliveness' in Roblox worlds comes from simple property-over-time loops. We'll make a Part cycle through colors once per second.",
+		},
+		{
+			id = "s2-create-part",
+			type = "scripted",
+			body = "Make a cube hovering at eye level. Anchored so nothing pushes it around.",
+			action = {
+				op = "createInstance",
+				class = "Part",
+				parent = "Workspace",
+				props = {
+					Name = "Cycler",
+					Anchored = true,
+					Size = { 3, 3, 3 },
+					Position = { 0, 5, 0 },
+					Material = "Enum.Material.Neon",
+					BrickColor = "Electric blue",
+				},
+			},
+			focus = {
+				selection = "Workspace.Cycler",
+			},
+		},
+		{
+			id = "s3-add-cycler",
+			type = "codeEdit",
+			body = "Drop a Script under the Part that cycles three colors on a timer.",
+			target = {
+				path = "Workspace.Cycler.Cycle",
+				create = true,
+				class = "Script",
+			},
+			source = [[local part = script.Parent
+
+local colors = {
+	Color3.fromRGB(235, 70, 90),
+	Color3.fromRGB(80, 220, 130),
+	Color3.fromRGB(90, 130, 255),
+}
+
+local i = 1
+while true do
+	part.Color = colors[i]
+	i = i % #colors + 1
+	task.wait(1)
+end
+]],
+			focus = {
+				script = {
+					path = "Workspace.Cycler.Cycle",
+				},
+			},
+		},
+		{
+			id = "s4-try-tween",
+			type = "prompt",
+			body = "Hard color swaps are stark. Ask Assistant to smooth them out with TweenService.",
+			suggestedPrompt = "Replace Workspace.Cycler.Cycle so the part tweens between the three colors over 1 second each using TweenService. Loop forever.",
+			focus = {
+				script = {
+					path = "Workspace.Cycler.Cycle",
+				},
+			},
+		},
+	},
+}
+
 return {
 	raycastBasics,
+	partColorCycle,
 }
