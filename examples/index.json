@@ -1,0 +1,22 @@
+{
+  "samples": [
+    {
+      "id": "raycast-basics",
+      "title": "Raycast basics",
+      "path": "raycast-basics/lesson.json",
+      "tags": ["raycasting", "beginner", "events"]
+    },
+    {
+      "id": "surface-sign",
+      "title": "Surface sign",
+      "path": "surface-sign/lesson.json",
+      "tags": ["ui", "beginner"]
+    },
+    {
+      "id": "spinning-platform",
+      "title": "Spinning platform",
+      "path": "spinning-platform/lesson.json",
+      "tags": ["animation", "runtime", "beginner"]
+    }
+  ]
+}
