@@ -646,6 +646,22 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 			if not child:IsA("UIListLayout") then child:Destroy() end
 		end
 
+		if #lessons == 0 then
+			local empty = Instance.new("TextLabel")
+			empty.Size = UDim2.new(1, 0, 0, 80)
+			empty.BackgroundTransparency = 1
+			empty.Font = Enum.Font.Gotham
+			empty.TextSize = 13
+			empty.TextColor3 = MUTED
+			empty.TextXAlignment = Enum.TextXAlignment.Left
+			empty.TextYAlignment = Enum.TextYAlignment.Top
+			empty.TextWrapped = true
+			empty.Text = "No lessons yet.\n\nClick ⚙ Manage above and fetch a repo like:\n\nhttps://raw.githubusercontent.com/robertly/tutorial-generator/master/examples"
+			empty.Parent = list
+			subtitle.Text = "0 lessons"
+			return
+		end
+
 		local shown = 0
 		for i, lesson in ipairs(lessons) do
 			if not matchesFilter(lesson) then continue end
