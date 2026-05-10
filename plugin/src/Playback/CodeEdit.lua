@@ -1,11 +1,11 @@
 local ResolvePath = require(script.Parent.ResolvePath)
 
--- step: { type = "codeEdit", target = { path, create?, class? }, source }
--- Full-source replacement: the `source` string is the entire script body
--- after this step. Never a diff.
+-- Returns (script, undoFn). If we created the script, undo destroys it.
+-- If we edited an existing script, undo restores the old source.
 local function apply(step)
 	local target = step.target
 	local script_ = ResolvePath.resolve(target.path)
+	local createdHere = false
 
 	if not script_ then
 		assert(
@@ -19,6 +19,7 @@ local function apply(step)
 		script_ = Instance.new(class)
 		script_.Name = leafName
 		script_.Parent = parent
+		createdHere = true
 	end
 
 	assert(
@@ -26,8 +27,18 @@ local function apply(step)
 		`codeEdit: target '{target.path}' is not a script (got {script_.ClassName})`
 	)
 
+	local oldSource = (script_ :: any).Source
 	;(script_ :: any).Source = step.source
-	return script_
+
+	local function undo()
+		if createdHere then
+			script_:Destroy()
+		elseif script_.Parent then
+			(script_ :: any).Source = oldSource
+		end
+	end
+
+	return script_, undo
 end
 
 return { apply = apply }

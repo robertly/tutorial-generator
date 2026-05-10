@@ -2,6 +2,7 @@ local ResolvePath = require(script.Parent.Parent.ResolvePath)
 local Coerce = require(script.Parent.Parent.Coerce)
 
 -- action: { op = "createInstance", class, parent, props? }
+-- Returns (instance, undoFn). undoFn destroys the instance.
 local function apply(action)
 	local parent = ResolvePath.resolve(action.parent)
 	assert(parent, `createInstance: parent '{action.parent}' not found`)
@@ -9,7 +10,6 @@ local function apply(action)
 	local instance = Instance.new(action.class)
 
 	local props = action.props or {}
-	-- Name first, then everything else, to keep later path-based references valid.
 	if props.Name then
 		instance.Name = props.Name
 	end
@@ -22,7 +22,12 @@ local function apply(action)
 	end
 
 	instance.Parent = parent
-	return instance
+
+	local function undo()
+		instance:Destroy()
+	end
+
+	return instance, undo
 end
 
 return {

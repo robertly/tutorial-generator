@@ -1,7 +1,5 @@
 local ResolvePath = require(script.Parent.Parent.ResolvePath)
 
--- action: { op = "cloneFromAssets", source, parent, name? }
--- source must live under ReplicatedStorage.TutorialAssets.*
 local function apply(action)
 	assert(
 		string.sub(action.source, 1, #"ReplicatedStorage.TutorialAssets.") == "ReplicatedStorage.TutorialAssets.",
@@ -22,7 +20,12 @@ local function apply(action)
 		clone.Name = action.name
 	end
 	clone.Parent = parent
-	return clone
+
+	local function undo()
+		clone:Destroy()
+	end
+
+	return clone, undo
 end
 
 return { apply = apply }

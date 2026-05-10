@@ -7,8 +7,6 @@
 --
 -- The "Reset" button walks back to step 0 by undoing via ChangeHistoryService.
 
-local ChangeHistoryService = game:GetService("ChangeHistoryService")
-
 local Apply = require(script.Parent.Playback.Apply)
 
 local function createUI(parent: GuiObject, lesson)
@@ -145,9 +143,11 @@ local function createUI(parent: GuiObject, lesson)
 
 	-- ---- State -----------------------------------------------------------
 	-- `currentIndex` is the index of the LAST APPLIED step. 0 = nothing
-	-- applied yet. Next applies steps[currentIndex+1], then increments.
-	-- Prev calls ChangeHistoryService:Undo() which reverses the last step.
+	-- applied yet. `undoStack[i]` reverses the step at index i, so Prev and
+	-- Reset just pop and call. Independent of ChangeHistoryService so
+	-- narrative/prompt steps (which don't mutate) don't throw off the count.
 	local currentIndex = 0
+	local undoStack: { () -> () } = {}
 
 	local function render()
 		local previewIndex = math.min(currentIndex + 1, #lesson.steps)
@@ -196,26 +196,37 @@ local function createUI(parent: GuiObject, lesson)
 	nextBtn.Activated:Connect(function()
 		if currentIndex >= #lesson.steps then return end
 		local step = lesson.steps[currentIndex + 1]
-		local ok, err = pcall(Apply.applyStep, lesson.id, step)
+		local ok, undoOrErr = pcall(Apply.applyStep, lesson.id, step)
 		if not ok then
-			warn(`[tutorial] step '{step.id}' failed: {err}`)
+			warn(`[tutorial] step '{step.id}' failed: {undoOrErr}`)
 			return
 		end
 		currentIndex += 1
+		undoStack[currentIndex] = undoOrErr
 		render()
 	end)
 
 	prevBtn.Activated:Connect(function()
 		if currentIndex <= 0 then return end
-		-- Undo the last applied step via the standard change-history stack.
-		ChangeHistoryService:Undo()
+		local undoFn = undoStack[currentIndex]
+		if undoFn then
+			local ok, err = pcall(undoFn)
+			if not ok then
+				warn(`[tutorial] undo step {currentIndex} failed: {err}`)
+			end
+		end
+		undoStack[currentIndex] = nil
 		currentIndex -= 1
 		render()
 	end)
 
 	resetBtn.Activated:Connect(function()
 		while currentIndex > 0 do
-			ChangeHistoryService:Undo()
+			local undoFn = undoStack[currentIndex]
+			if undoFn then
+				pcall(undoFn)
+			end
+			undoStack[currentIndex] = nil
 			currentIndex -= 1
 		end
 		render()

@@ -18,23 +18,26 @@ local ACTIONS = {
 	insertAsset = InsertAsset.apply,
 }
 
--- Apply a single step inside a ChangeHistoryService transaction so Ctrl-Z
--- undoes exactly one step.
-local function applyStep(lessonId: string, step)
+-- Apply a single step. Returns an undo function that reverses it (may be a
+-- no-op for narrative/prompt). Wraps in ChangeHistoryService so Ctrl-Z on
+-- the place also works, but the UI uses the returned undo directly so
+-- narrative/prompt steps don't throw off the count.
+local function applyStep(lessonId: string, step): () -> ()
 	local displayName = `tutorial:{lessonId}:{step.id}`
 	local recording = ChangeHistoryService:TryBeginRecording(displayName)
 
+	local undoFn: () -> () = function() end
 	local ok, err = pcall(function()
-		if step.type == "narrative" then
-			-- no-op
+		if step.type == "narrative" or step.type == "prompt" then
+			return
 		elseif step.type == "scripted" then
 			local fn = ACTIONS[step.action.op]
 			assert(fn, `Unknown action op '{step.action.op}'`)
-			fn(step.action)
+			local _, u = fn(step.action)
+			undoFn = u or undoFn
 		elseif step.type == "codeEdit" then
-			CodeEdit.apply(step)
-		elseif step.type == "prompt" then
-			-- no-op; the reader copies the suggested prompt into Assistant
+			local _, u = CodeEdit.apply(step)
+			undoFn = u or undoFn
 		else
 			error(`Unknown step type '{step.type}'`)
 		end
@@ -52,17 +55,9 @@ local function applyStep(lessonId: string, step)
 	end
 
 	Focus.apply(step.focus)
-end
-
--- Replay steps [1..endIndex] from scratch. Caller is responsible for
--- resetting the place to a clean state (usually: reopen the .rbxlx).
-local function replayTo(lessonId: string, lesson, endIndex: number)
-	for i = 1, endIndex do
-		applyStep(lessonId, lesson.steps[i])
-	end
+	return undoFn
 end
 
 return {
 	applyStep = applyStep,
-	replayTo = replayTo,
 }
