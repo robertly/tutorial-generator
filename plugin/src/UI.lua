@@ -206,11 +206,14 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 
 	local prevBtn = makeBtn("Prev", "◀ Prev", 1)
 	local nextBtn = makeBtn("Next", "Next ▶", 2)
-	local resetBtn = makeBtn("Reset", "Reset", 3)
+	local autoBtn = makeBtn("Auto", "▶ Auto", 3)
+	local resetBtn = makeBtn("Reset", "Reset", 4)
 
 	-- ---- State + render --------------------------------------------------
 	local currentIndex = 0
 	local undoStack: { () -> () } = {}
+	local autoTask: thread? = nil
+	local AUTO_SECONDS = 2.5
 
 	local function render()
 		local previewIndex
@@ -309,26 +312,43 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		end)
 	end
 
-	nextBtn.Activated:Connect(function()
-		if currentIndex >= #lesson.steps then
-			focusViewport()
-			return
+	local function stopAutoplay()
+		if autoTask then
+			pcall(task.cancel, autoTask)
+			autoTask = nil
 		end
+		autoBtn.Text = "▶ Auto"
+		autoBtn.BackgroundColor3 = ROW
+	end
+
+	local function applyNext(): boolean
+		if currentIndex >= #lesson.steps then return false end
 		local step = lesson.steps[currentIndex + 1]
 		local ok, undoOrErr = pcall(Apply.applyStep, lesson.id, step)
 		if not ok then
 			warn(`[tutorial] step '{step.id}' failed: {undoOrErr}`)
-			return
+			return false
 		end
 		currentIndex += 1
 		undoStack[currentIndex] = undoOrErr
 		render()
+		return true
+	end
+
+	nextBtn.Activated:Connect(function()
+		stopAutoplay()
+		if currentIndex >= #lesson.steps then
+			focusViewport()
+			return
+		end
+		applyNext()
 		if currentIndex >= #lesson.steps then
 			focusViewport()
 		end
 	end)
 
 	prevBtn.Activated:Connect(function()
+		stopAutoplay()
 		if currentIndex <= 0 then return end
 		local undoFn = undoStack[currentIndex]
 		if undoFn then
@@ -343,6 +363,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end)
 
 	resetBtn.Activated:Connect(function()
+		stopAutoplay()
 		while currentIndex > 0 do
 			local undoFn = undoStack[currentIndex]
 			if undoFn then pcall(undoFn) end
@@ -350,6 +371,36 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 			currentIndex -= 1
 		end
 		render()
+	end)
+
+	autoBtn.Activated:Connect(function()
+		if autoTask then
+			stopAutoplay()
+			return
+		end
+		autoBtn.Text = "⏸ Pause"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(150, 120, 70)
+		autoTask = task.spawn(function()
+			while autoTask do
+				if currentIndex >= #lesson.steps then
+					stopAutoplay()
+					focusViewport()
+					return
+				end
+				-- Pause before prompt steps — they need reader action.
+				local nextStep = lesson.steps[currentIndex + 1]
+				if nextStep and nextStep.type == "prompt" then
+					stopAutoplay()
+					return
+				end
+				task.wait(AUTO_SECONDS)
+				if not autoTask then return end
+				if not applyNext() then
+					stopAutoplay()
+					return
+				end
+			end
+		end)
 	end)
 
 	render()
