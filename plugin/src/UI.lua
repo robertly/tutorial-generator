@@ -689,7 +689,7 @@ local function showSettings(parent: GuiObject, plugin: Plugin, onBack: () -> (),
 	help.TextXAlignment = Enum.TextXAlignment.Left
 	help.TextYAlignment = Enum.TextYAlignment.Top
 	help.TextWrapped = true
-	help.Text = "Paste a URL to a lesson.json conforming to schema.json. Saved lessons persist across Studio sessions."
+	help.Text = "Paste a lesson.json URL for a single lesson, or a repo base URL (the folder containing index.json) to fetch all lessons in it."
 	help.Parent = root
 
 	local urlBox = Instance.new("TextBox")
@@ -701,28 +701,49 @@ local function showSettings(parent: GuiObject, plugin: Plugin, onBack: () -> (),
 	urlBox.TextSize = 12
 	urlBox.TextColor3 = TEXT
 	urlBox.TextXAlignment = Enum.TextXAlignment.Left
-	urlBox.PlaceholderText = "https://raw.githubusercontent.com/.../lesson.json"
+	urlBox.PlaceholderText = "https://raw.githubusercontent.com/.../lesson.json  or  .../samples"
 	urlBox.ClearTextOnFocus = false
 	urlBox.Text = ""
 	urlBox.Parent = root
 	pad(urlBox, 6, 8, 6, 8)
 
-	local fetchBtn = Instance.new("TextButton")
-	fetchBtn.LayoutOrder = 4
-	fetchBtn.Size = UDim2.new(0, 100, 0, 28)
-	fetchBtn.BackgroundColor3 = ACCENT
-	fetchBtn.BorderSizePixel = 0
-	fetchBtn.Font = Enum.Font.Gotham
-	fetchBtn.TextSize = 13
-	fetchBtn.TextColor3 = TEXT
-	fetchBtn.Text = "Fetch"
-	fetchBtn.Parent = root
-	corner(fetchBtn, 4)
+	local btnRow = Instance.new("Frame")
+	btnRow.LayoutOrder = 4
+	btnRow.BackgroundTransparency = 1
+	btnRow.Size = UDim2.new(1, 0, 0, 28)
+	btnRow.Parent = root
+
+	local btnRowLayout = Instance.new("UIListLayout")
+	btnRowLayout.FillDirection = Enum.FillDirection.Horizontal
+	btnRowLayout.Padding = UDim.new(0, 6)
+	btnRowLayout.Parent = btnRow
+
+	local fetchLessonBtn = Instance.new("TextButton")
+	fetchLessonBtn.Size = UDim2.new(0, 120, 1, 0)
+	fetchLessonBtn.BackgroundColor3 = ACCENT
+	fetchLessonBtn.BorderSizePixel = 0
+	fetchLessonBtn.Font = Enum.Font.Gotham
+	fetchLessonBtn.TextSize = 13
+	fetchLessonBtn.TextColor3 = TEXT
+	fetchLessonBtn.Text = "Fetch lesson"
+	fetchLessonBtn.Parent = btnRow
+	corner(fetchLessonBtn, 4)
+
+	local fetchRepoBtn = Instance.new("TextButton")
+	fetchRepoBtn.Size = UDim2.new(0, 120, 1, 0)
+	fetchRepoBtn.BackgroundColor3 = Color3.fromRGB(70, 110, 160)
+	fetchRepoBtn.BorderSizePixel = 0
+	fetchRepoBtn.Font = Enum.Font.Gotham
+	fetchRepoBtn.TextSize = 13
+	fetchRepoBtn.TextColor3 = TEXT
+	fetchRepoBtn.Text = "Fetch repo"
+	fetchRepoBtn.Parent = btnRow
+	corner(fetchRepoBtn, 4)
 
 	local status = Instance.new("TextLabel")
 	status.LayoutOrder = 5
 	status.BackgroundTransparency = 1
-	status.Size = UDim2.new(1, 0, 0, 32)
+	status.Size = UDim2.new(1, 0, 0, 48)
 	status.Font = Enum.Font.Gotham
 	status.TextSize = 12
 	status.TextColor3 = MUTED
@@ -732,12 +753,30 @@ local function showSettings(parent: GuiObject, plugin: Plugin, onBack: () -> (),
 	status.Text = ""
 	status.Parent = root
 
-	fetchBtn.Activated:Connect(function()
+	local function persistLesson(url: string, lesson)
+		local urls = plugin:GetSetting(SETTING_URLS) or {}
+		local cached = plugin:GetSetting(SETTING_LESSONS) or {}
+		local replaced = false
+		for i, u in ipairs(urls) do
+			if u == url then
+				cached[i] = lesson
+				replaced = true
+				break
+			end
+		end
+		if not replaced then
+			table.insert(urls, url)
+			table.insert(cached, lesson)
+		end
+		plugin:SetSetting(SETTING_URLS, urls)
+		plugin:SetSetting(SETTING_LESSONS, cached)
+	end
+
+	fetchLessonBtn.Activated:Connect(function()
 		local url = urlBox.Text
 		if url == "" then return end
 		status.Text = "Fetching..."
 		status.TextColor3 = MUTED
-
 		task.spawn(function()
 			local lesson, err = Fetch.fromUrl(url)
 			if not lesson then
@@ -745,28 +784,40 @@ local function showSettings(parent: GuiObject, plugin: Plugin, onBack: () -> (),
 				status.Text = `Failed: {err}`
 				return
 			end
-
-			-- Persist URL + lesson.
-			local urls = plugin:GetSetting(SETTING_URLS) or {}
-			local cached = plugin:GetSetting(SETTING_LESSONS) or {}
-			local replaced = false
-			for i, u in ipairs(urls) do
-				if u == url then
-					cached[i] = lesson
-					replaced = true
-					break
-				end
-			end
-			if not replaced then
-				table.insert(urls, url)
-				table.insert(cached, lesson)
-			end
-			plugin:SetSetting(SETTING_URLS, urls)
-			plugin:SetSetting(SETTING_LESSONS, cached)
-
+			persistLesson(url, lesson)
 			status.TextColor3 = Color3.fromRGB(120, 200, 120)
 			status.Text = `Added "{lesson.title}" ({#lesson.steps} steps).`
 			onAdded(lesson)
+		end)
+	end)
+
+	fetchRepoBtn.Activated:Connect(function()
+		local baseUrl = urlBox.Text
+		if baseUrl == "" then return end
+		status.Text = "Fetching repo index + lessons..."
+		status.TextColor3 = MUTED
+		task.spawn(function()
+			local lessons, errorsOrErr = Fetch.fromRepoIndex(baseUrl)
+			if not lessons then
+				status.TextColor3 = Color3.fromRGB(210, 100, 100)
+				status.Text = `Failed: {errorsOrErr}`
+				return
+			end
+			local trimmed = if string.sub(baseUrl, -1) == "/"
+				then string.sub(baseUrl, 1, -2)
+				else baseUrl
+			for _, lesson in ipairs(lessons) do
+				persistLesson(trimmed .. "::" .. lesson.id, lesson)
+				onAdded(lesson)
+			end
+			local errs = errorsOrErr :: { string }
+			if #errs > 0 then
+				status.TextColor3 = Color3.fromRGB(210, 170, 80)
+				status.Text = `Added {#lessons} lesson(s). {#errs} failed:\n{errs[1]}`
+			else
+				status.TextColor3 = Color3.fromRGB(120, 200, 120)
+				status.Text = `Added {#lessons} lesson(s) from repo.`
+			end
 		end)
 	end)
 end

@@ -101,7 +101,55 @@ local function fromUrl(url: string)
 	return decoded, nil
 end
 
+-- Fetch a repo index.json and each lesson it lists.
+-- index.json shape: { "samples": [ { id, title, path, tags? }, ... ] }
+-- Returns (lessons[], errors[]) — lessons that failed are omitted from
+-- the first return and their URLs collected in the second.
+local function fromRepoIndex(baseUrl: string)
+	local trimmed = if string.sub(baseUrl, -1) == "/"
+		then string.sub(baseUrl, 1, -2)
+		else baseUrl
+	local indexUrl = trimmed .. "/index.json"
+
+	local okGet, bodyOrErr = pcall(function()
+		return HttpService:GetAsync(indexUrl)
+	end)
+	if not okGet then
+		return nil, `HTTP error fetching index: {bodyOrErr}`
+	end
+
+	local okDecode, decoded = pcall(function()
+		return HttpService:JSONDecode(bodyOrErr)
+	end)
+	if not okDecode then
+		return nil, `JSON parse error for index.json: {decoded}`
+	end
+
+	if typeof(decoded) ~= "table" or typeof(decoded.samples) ~= "table" then
+		return nil, "index.json missing 'samples' array"
+	end
+
+	local lessons = {}
+	local errors = {}
+	for _, entry in ipairs(decoded.samples) do
+		if typeof(entry) ~= "table" or typeof(entry.path) ~= "string" then
+			table.insert(errors, "index entry missing path")
+			continue
+		end
+		local lessonUrl = trimmed .. "/" .. entry.path
+		local lesson, err = fromUrl(lessonUrl)
+		if lesson then
+			table.insert(lessons, lesson)
+		else
+			table.insert(errors, `{lessonUrl}: {err}`)
+		end
+	end
+
+	return lessons, errors
+end
+
 return {
 	fromUrl = fromUrl,
+	fromRepoIndex = fromRepoIndex,
 	validate = validate,
 }
