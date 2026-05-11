@@ -695,8 +695,21 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	corner(settingsBtn, 4)
 	settingsBtn.Activated:Connect(onSettings)
 
+	-- Studio doesn't expose an API for toggling Explorer / Properties
+	-- visibility — so just nudge users to turn them on from the View ribbon.
+	local hint = Instance.new("TextLabel")
+	hint.LayoutOrder = 2
+	hint.BackgroundTransparency = 1
+	hint.Size = UDim2.new(1, 0, 0, 16)
+	hint.Font = Enum.Font.Gotham
+	hint.TextSize = 11
+	hint.TextColor3 = MUTED
+	hint.TextXAlignment = Enum.TextXAlignment.Left
+	hint.Text = "Tip: enable Explorer + Properties from the View ribbon for the full experience."
+	hint.Parent = root
+
 	local searchBox = Instance.new("TextBox")
-	searchBox.LayoutOrder = 2
+	searchBox.LayoutOrder = 3
 	searchBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	searchBox.BorderSizePixel = 0
 	searchBox.Size = UDim2.new(1, 0, 0, 28)
@@ -724,7 +737,7 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	table.sort(allTags)
 
 	local tagRow = Instance.new("ScrollingFrame")
-	tagRow.LayoutOrder = 3
+	tagRow.LayoutOrder = 4
 	tagRow.BackgroundTransparency = 1
 	tagRow.BorderSizePixel = 0
 	tagRow.Size = UDim2.new(1, 0, 0, 26)
@@ -745,7 +758,7 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	local tagChips: { [string]: TextButton } = {}
 
 	local subtitle = Instance.new("TextLabel")
-	subtitle.LayoutOrder = 4
+	subtitle.LayoutOrder = 5
 	subtitle.BackgroundTransparency = 1
 	subtitle.Size = UDim2.new(1, 0, 0, 16)
 	subtitle.Font = Enum.Font.Gotham
@@ -755,7 +768,7 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	subtitle.Parent = root
 
 	local list = Instance.new("ScrollingFrame")
-	list.LayoutOrder = 5
+	list.LayoutOrder = 6
 	list.BackgroundTransparency = 1
 	list.Size = UDim2.new(1, 0, 1, -120)
 	list.CanvasSize = UDim2.fromScale(0, 0)
