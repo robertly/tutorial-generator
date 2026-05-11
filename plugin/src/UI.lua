@@ -1,7 +1,7 @@
 -- Native Instance-based UI. Three views:
 --   Library  — list of lessons. Click one to open.
 --   Lesson   — active playback: title, step counter, body, optional diff,
---              optional prompt, Prev/Next/Reset buttons.
+--              optional diff panel, Prev/Next/Reset buttons.
 --   Settings — paste a lesson URL to fetch and add to the library.
 --
 -- Restart in a fresh (empty) place before running a lesson; undo/reset
@@ -182,63 +182,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	diffLabel.Parent = diffScroll
 	pad(diffLabel, 8, 10, 8, 10)
 
-	-- ---- Prompt box (prompt steps) --------------------------------------
-	-- Wrapper frame so the Copy button is a sibling of the TextBox, not a
-	-- child — a child button inside a TextBox has its clicks captured by
-	-- the TextBox's focus logic.
-	local promptContainer = Instance.new("Frame")
-	promptContainer.LayoutOrder = 6
-	promptContainer.BackgroundTransparency = 1
-	promptContainer.Size = UDim2.new(1, 0, 0, 110)
-	promptContainer.Visible = false
-	promptContainer.Parent = root
-
-	local promptBox = Instance.new("TextBox")
-	promptBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	promptBox.BorderSizePixel = 0
-	promptBox.Size = UDim2.new(1, 0, 1, 0)
-	promptBox.Font = Enum.Font.Code
-	promptBox.TextSize = 12
-	promptBox.TextColor3 = Color3.fromRGB(200, 220, 240)
-	promptBox.TextXAlignment = Enum.TextXAlignment.Left
-	promptBox.TextYAlignment = Enum.TextYAlignment.Top
-	promptBox.TextWrapped = true
-	promptBox.MultiLine = true
-	promptBox.ClearTextOnFocus = false
-	promptBox.Parent = promptContainer
-	pad(promptBox, 8, 10, 8, 10)
-
-	local copyBtn = Instance.new("TextButton")
-	copyBtn.Name = "CopyPrompt"
-	copyBtn.AnchorPoint = Vector2.new(1, 0)
-	copyBtn.Position = UDim2.new(1, -6, 0, 6)
-	copyBtn.Size = UDim2.new(0, 64, 0, 22)
-	copyBtn.BackgroundColor3 = ROW
-	copyBtn.BorderSizePixel = 0
-	copyBtn.Font = Enum.Font.Gotham
-	copyBtn.TextSize = 11
-	copyBtn.TextColor3 = TEXT
-	copyBtn.Text = "⧉ Copy"
-	copyBtn.AutoButtonColor = true
-	copyBtn.ZIndex = 3
-	copyBtn.Parent = promptContainer
-	corner(copyBtn, 4)
-	copyBtn.Activated:Connect(function()
-		local text = promptBox.Text
-		local ok, err = pcall(function()
-			setclipboard(text)
-		end)
-		if ok then
-			copyBtn.Text = "✓ Copied"
-		else
-			warn(`[tutorial] copy failed: {err}`)
-			copyBtn.Text = "× Fail"
-		end
-		task.delay(1.2, function()
-			copyBtn.Text = "⧉ Copy"
-		end)
-	end)
-
 	-- ---- Button row ------------------------------------------------------
 	local buttonRow = Instance.new("Frame")
 	buttonRow.LayoutOrder = 7
@@ -289,7 +232,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		if stepType == "narrative" then return Color3.fromRGB(110, 110, 120)
 		elseif stepType == "scripted" then return Color3.fromRGB(70, 110, 160)
 		elseif stepType == "codeEdit" then return Color3.fromRGB(140, 90, 160)
-		elseif stepType == "prompt" then return Color3.fromRGB(180, 130, 60)
 		else return Color3.fromRGB(90, 90, 90)
 		end
 	end
@@ -302,7 +244,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 			body.Text = (lesson.goal or lesson.title or "")
 				.. "\n\nMove around, inspect the result in the Explorer, or press ▶ Play (F5) to try it. Click Next ▶ to walk through how it was built, step by step."
 			diffScroll.Visible = false
-			promptContainer.Visible = false
 
 			prevBtn.Active = false
 			prevBtn.AutoButtonColor = false
@@ -350,13 +291,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 			diffScroll.Visible = true
 		else
 			diffScroll.Visible = false
-		end
-
-		if stepToShow.type == "prompt" and stepToShow.suggestedPrompt then
-			promptContainer.Visible = true
-			promptBox.Text = stepToShow.suggestedPrompt
-		else
-			promptContainer.Visible = false
 		end
 
 		-- Prev is always available in step mode — from currentIndex=0 it
