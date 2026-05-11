@@ -305,6 +305,8 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 			and (currentIndex + 1) == #lesson.steps
 		local isComplete = currentIndex >= #lesson.steps
 
+		-- Reset any lockFinish styling when re-rendering (e.g. after Prev).
+		nextBtn.TextTransparency = 0
 		if isLastPreview or isComplete then
 			nextBtn.Text = "✓ Finish"
 			nextBtn.Size = UDim2.new(0, 110, 1, 0)
@@ -466,6 +468,14 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		end)
 	end
 
+	local function lockFinish()
+		nextBtn.Text = "✓ Done"
+		nextBtn.Active = false
+		nextBtn.AutoButtonColor = false
+		nextBtn.BackgroundColor3 = Color3.fromRGB(60, 95, 60)
+		nextBtn.TextTransparency = 0.35
+	end
+
 	nextBtn.Activated:Connect(function()
 		if overviewMode then
 			leaveOverviewToFirstStep()
@@ -473,11 +483,13 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		end
 		if currentIndex >= #lesson.steps then
 			focusViewport()
+			lockFinish()
 			return
 		end
 		applyNext()
 		if currentIndex >= #lesson.steps then
 			focusViewport()
+			lockFinish()
 		end
 	end)
 
