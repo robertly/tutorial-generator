@@ -11,7 +11,7 @@
     {
       "id": "s1-intro",
       "type": "narrative",
-      "body": "A lot of Roblox worlds use in-world signage — quest markers, shop\nlabels, puzzle hints. The trick is `SurfaceGui`: it projects a\nregular 2D UI onto a chosen face of a Part. We'll build one.\n"
+      "body": "A lot of Roblox worlds use in-world signage \u2014 quest markers, shop\nlabels, puzzle hints. The trick is `SurfaceGui`: it projects a\nregular 2D UI onto a chosen face of a Part. We'll build one.\n"
     },
     {
       "id": "s2-create-post",
@@ -102,15 +102,9 @@
       }
     },
     {
-      "id": "s5-animate",
-      "type": "prompt",
-      "body": "Static signs are fine, but a gentle pulse reads much more alive.\nAsk Assistant to animate the text.\n",
-      "suggestedPrompt": "Add a Script under Workspace.SignPost.Display.Headline that uses\nTweenService to pulse the TextLabel's TextTransparency between 0 and\n0.4 with a 1.5-second period, looping forever.\n"
-    },
-    {
       "id": "s6-playtest",
       "type": "narrative",
-      "body": "Press ▶ **Play** (or F5). Walk around your SignPost — you should see\n\"WELCOME\" rendered on the front face of the wooden board, readable\nfrom any reasonable distance. Shift+F5 to stop.\n"
+      "body": "Press \u25b6 **Play** (or F5). Walk around your SignPost \u2014 you should see\n\"WELCOME\" rendered on the front face of the wooden board, readable\nfrom any reasonable distance. Shift+F5 to stop.\n"
     }
   ]
 }

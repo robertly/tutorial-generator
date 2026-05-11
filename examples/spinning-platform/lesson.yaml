@@ -2,82 +2,85 @@ schemaVersion: 1
 id: spinning-platform
 title: Spinning platform
 goal: Drive continuous motion from a Script with RunService.Heartbeat.
-tags: [animation, runtime, beginner]
-
+tags:
+- animation
+- runtime
+- beginner
 steps:
-  - id: s1-intro
-    type: narrative
-    body: |
-      Game juice often comes from *always-on* motion — platforms that
-      rotate, signs that bob, dust that drifts. In Roblox, the
-      lowest-friction way to drive this is `RunService.Heartbeat`: a
-      signal that fires every server tick with a `deltaTime` you can
-      scale motion by.
+- id: s1-intro
+  type: narrative
+  body: 'Game juice often comes from *always-on* motion — platforms that
 
-  - id: s2-create-platform
-    type: scripted
-    body: |
-      Make a wide, flat, anchored Part at origin. Flat so the spin
-      reads clearly; anchored so physics doesn't interfere.
-    action:
-      op: createInstance
-      class: Part
-      parent: Workspace
-      props:
-        Name: Platform
-        Anchored: true
-        Size: [10, 1, 10]
-        Position: [0, 3, 0]
-        Material: Enum.Material.Slate
-        BrickColor: "Medium stone grey"
-    focus:
-      selection: "Workspace.Platform"
+    rotate, signs that bob, dust that drifts. In Roblox, the
 
-  - id: s3-add-spinner
-    type: codeEdit
-    body: |
-      Add a Spinner Script that rotates the Platform by a fixed angular
-      rate per second. We multiply by `deltaTime` so the rate stays
-      consistent regardless of frame rate.
-    explain: |
-      `CFrame.Angles(0, angle, 0)` builds a rotation around the Y axis.
-      Multiplying the platform's existing CFrame by that rotation on the
-      right-hand side rotates it *about its own center*, not the world
-      origin.
-    target:
-      path: "Workspace.Platform.Spinner"
-      create: true
-      class: Script
-    source: |
-      local RunService = game:GetService("RunService")
+    lowest-friction way to drive this is `RunService.Heartbeat`: a
 
-      local platform = script.Parent
-      local RADIANS_PER_SECOND = math.rad(45)
+    signal that fires every server tick with a `deltaTime` you can
 
-      RunService.Heartbeat:Connect(function(deltaTime)
-        platform.CFrame = platform.CFrame * CFrame.Angles(0, RADIANS_PER_SECOND * deltaTime, 0)
-      end)
-    focus:
-      script:
-        path: "Workspace.Platform.Spinner"
+    scale motion by.
 
-  - id: s4-bob
-    type: prompt
-    body: |
-      A spin alone is fine, but layering a gentle Y bob on top gives it
-      that "floating pedestal" feel. Ask Assistant to add it.
-    suggestedPrompt: |
-      Modify Workspace.Platform.Spinner so that, in addition to the
-      existing spin, the Platform also bobs up and down by ±0.5 studs
-      on a 2-second sine wave. Use os.clock() for the phase so it's
-      smooth across frame rates. Keep it anchored (no physics).
-    focus:
-      script:
-        path: "Workspace.Platform.Spinner"
+    '
+- id: s2-create-platform
+  type: scripted
+  body: 'Make a wide, flat, anchored Part at origin. Flat so the spin
 
-  - id: s5-playtest
-    type: narrative
-    body: |
-      Press ▶ **Play** (or F5). The Platform should rotate slowly in
-      place at ~45°/sec. If you applied the bob prompt, it'll also
-      float up and down gently. Shift+F5 to stop.
+    reads clearly; anchored so physics doesn''t interfere.
+
+    '
+  action:
+    op: createInstance
+    class: Part
+    parent: Workspace
+    props:
+      Name: Platform
+      Anchored: true
+      Size:
+      - 10
+      - 1
+      - 10
+      Position:
+      - 0
+      - 3
+      - 0
+      Material: Enum.Material.Slate
+      BrickColor: Medium stone grey
+  focus:
+    selection: Workspace.Platform
+- id: s3-add-spinner
+  type: codeEdit
+  body: 'Add a Spinner Script that rotates the Platform by a fixed angular
+
+    rate per second. We multiply by `deltaTime` so the rate stays
+
+    consistent regardless of frame rate.
+
+    '
+  explain: '`CFrame.Angles(0, angle, 0)` builds a rotation around the Y axis.
+
+    Multiplying the platform''s existing CFrame by that rotation on the
+
+    right-hand side rotates it *about its own center*, not the world
+
+    origin.
+
+    '
+  target:
+    path: Workspace.Platform.Spinner
+    create: true
+    class: Script
+  source: "local RunService = game:GetService(\"RunService\")\n\nlocal platform =\
+    \ script.Parent\nlocal RADIANS_PER_SECOND = math.rad(45)\n\nRunService.Heartbeat:Connect(function(deltaTime)\n\
+    \  platform.CFrame = platform.CFrame * CFrame.Angles(0, RADIANS_PER_SECOND * deltaTime,\
+    \ 0)\nend)\n"
+  focus:
+    script:
+      path: Workspace.Platform.Spinner
+- id: s5-playtest
+  type: narrative
+  body: 'Press ▶ **Play** (or F5). The Platform should rotate slowly in
+
+    place at ~45°/sec. If you applied the bob prompt, it''ll also
+
+    float up and down gently. Shift+F5 to stop.
+
+    '

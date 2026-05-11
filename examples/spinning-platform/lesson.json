@@ -12,7 +12,7 @@
     {
       "id": "s1-intro",
       "type": "narrative",
-      "body": "Game juice often comes from *always-on* motion — platforms that\nrotate, signs that bob, dust that drifts. In Roblox, the\nlowest-friction way to drive this is `RunService.Heartbeat`: a\nsignal that fires every server tick with a `deltaTime` you can\nscale motion by.\n"
+      "body": "Game juice often comes from *always-on* motion \u2014 platforms that\nrotate, signs that bob, dust that drifts. In Roblox, the\nlowest-friction way to drive this is `RunService.Heartbeat`: a\nsignal that fires every server tick with a `deltaTime` you can\nscale motion by.\n"
     },
     {
       "id": "s2-create-platform",
@@ -61,20 +61,9 @@
       }
     },
     {
-      "id": "s4-bob",
-      "type": "prompt",
-      "body": "A spin alone is fine, but layering a gentle Y bob on top gives it\nthat \"floating pedestal\" feel. Ask Assistant to add it.\n",
-      "suggestedPrompt": "Modify Workspace.Platform.Spinner so that, in addition to the\nexisting spin, the Platform also bobs up and down by ±0.5 studs\non a 2-second sine wave. Use os.clock() for the phase so it's\nsmooth across frame rates. Keep it anchored (no physics).\n",
-      "focus": {
-        "script": {
-          "path": "Workspace.Platform.Spinner"
-        }
-      }
-    },
-    {
       "id": "s5-playtest",
       "type": "narrative",
-      "body": "Press ▶ **Play** (or F5). The Platform should rotate slowly in\nplace at ~45°/sec. If you applied the bob prompt, it'll also\nfloat up and down gently. Shift+F5 to stop.\n"
+      "body": "Press \u25b6 **Play** (or F5). The Platform should rotate slowly in\nplace at ~45\u00b0/sec. If you applied the bob prompt, it'll also\nfloat up and down gently. Shift+F5 to stop.\n"
     }
   ]
 }

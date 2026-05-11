@@ -82,12 +82,6 @@
       }
     },
     {
-      "id": "s5-prompt-upgrade",
-      "type": "prompt",
-      "body": "The handler only fires when something physically touches the\nemitter, which is quiet during normal play. A useful extension\nis to fire on a steady interval so you can watch the ray work\neven when nothing's moving.\n",
-      "suggestedPrompt": "Modify Workspace.Emitter.Handler so that instead of only firing\non .Touched, it also casts the same downward ray every 0.5\nseconds using a task.spawn loop. Keep the existing Touched\nbehavior intact. Print the hit the same way for both sources.\n"
-    },
-    {
       "id": "s6-playtest",
       "type": "narrative",
       "body": "Press \u25b6 Play (or F5). Walk your character onto the cyan emitter\n\u2014 each step triggers a fresh raycast and you'll see\n\"Ray hit: Workspace.Target.*\" lines stream into the Output\nwindow. Step off the target and the ray will eventually hit the\nbaseplate or report a miss. Shift+F5 to stop.\n"
