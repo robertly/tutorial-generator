@@ -42,7 +42,7 @@ Every step has four common fields: `id`, `type`, `body`, and optionally `explain
 | Field | Required | Description |
 |-------|----------|-------------|
 | `id` | yes | Lowercase hyphenated slug, unique within the lesson. |
-| `type` | yes | One of `narrative`, `scripted`, `codeEdit`, `prompt`. |
+| `type` | yes | One of `narrative`, `scripted`, `codeEdit`. |
 | `body` | yes | Main narrative. Markdown allowed. Shown in the main content area. |
 | `explain` | no | Deeper explanation. Expandable "learn more" panel in the UI. |
 | `focus` | no | UI highlight applied after the step runs. See [Focus](#focus). |
@@ -114,22 +114,6 @@ Creates or edits a script. The `source` field holds the **entire script body** a
 ```
 
 `target.create` and `target.class` are only needed when creating a new script. For edits to an existing script, just provide `target.path` and the new full `source`.
-
-### `prompt` step
-
-Narrative with a copyable suggested prompt. Use when "the right way to do this is to ask Studio's Assistant." The plugin renders a Copy button next to the prompt; the reader pastes it into Assistant themselves.
-
-```yaml
-- id: s4
-  type: prompt
-  body: |
-    Now let's make the emitter fire continuously. Rather than writing
-    this by hand, ask Assistant to extend the handler.
-  suggestedPrompt: |
-    Modify Workspace.Emitter.Handler so the ray fires every 0.5 seconds
-    using task.wait, and prints a different message when it hits a Part
-    named "Target".
-```
 
 ## Focus
 
@@ -341,15 +325,11 @@ steps:
     focus:
       selection: "Workspace.Target"
 
-  - id: s5
-    type: prompt
+  - id: s5-playtest
+    type: narrative
     body: |
-      Let's make the ray fire continuously instead of only on touch.
-      Ask Assistant to extend the handler.
-    suggestedPrompt: |
-      Modify Workspace.Emitter.Handler so the ray fires every 0.5 seconds
-      using a while loop and task.wait, instead of only firing on Touched.
-      Print a message whenever the ray hits Workspace.Target.
+      Press ▶ Play (F5). Touch the emitter — each contact triggers a
+      downward raycast and prints the hit in the Output window.
 ```
 
 ## Gotchas

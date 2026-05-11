@@ -31,8 +31,8 @@ prevents AI drift from re-ingesting our own output.
 
 ### Steps
 
-Pick types from the closed vocabulary: `narrative`, `scripted`, `codeEdit`,
-`prompt`. Prefer **fewer, weightier** steps over many tiny ones. Good default
+Pick types from the closed vocabulary: `narrative`, `scripted`, `codeEdit`.
+Prefer **fewer, weightier** steps over many tiny ones. Good default
 cadence:
 
 - First step: `narrative` — set up what the reader is about to see.
@@ -42,8 +42,10 @@ cadence:
   inline (`createInstance` takes a `props` map), then use follow-up
   `setProperty` steps only for changes that deserve their own narrative
   beat.
-- `prompt` steps — use sparingly, for "the best way to extend this is to ask
-  Assistant." One per lesson, usually near the end.
+- Every step must be **deterministic** — a concrete mutation the plugin
+  can apply without user intervention. Don't emit open-ended "ask the
+  Assistant to do X" steps; if the build requires something the
+  playback engine can't express, simplify the lesson scope instead.
 - **Last step: always a `narrative` playtest step.** Conventional id
   `sN-playtest`. Its body tells the reader to press Play (F5) and
   describes what they should see, hear, or do to verify the build works.
@@ -91,7 +93,7 @@ Use only these six ops:
 - `insertAsset` — fallback for `rbxassetid://...` marketplace references.
 
 Don't invent new ops. If an author asks for something outside this set,
-model it as a `prompt` step instead.
+reshape the lesson so the deterministic ops suffice, or drop the piece.
 
 ### Property values
 

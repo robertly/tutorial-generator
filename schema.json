@@ -176,8 +176,7 @@
       "oneOf": [
         { "$ref": "#/definitions/NarrativeStep" },
         { "$ref": "#/definitions/ScriptedStep" },
-        { "$ref": "#/definitions/CodeEditStep" },
-        { "$ref": "#/definitions/PromptStep" }
+        { "$ref": "#/definitions/CodeEditStep" }
       ]
     },
 
@@ -238,24 +237,6 @@
         "source": {
           "description": "Full Source body of the script after this step. Never a diff or patch.",
           "type": "string"
-        }
-      }
-    },
-
-    "PromptStep": {
-      "type": "object",
-      "required": ["id", "type", "body", "suggestedPrompt"],
-      "additionalProperties": false,
-      "properties": {
-        "id": { "$ref": "#/definitions/StepId" },
-        "type": { "const": "prompt" },
-        "body": { "type": "string", "minLength": 1 },
-        "explain": { "type": "string" },
-        "focus": { "$ref": "#/definitions/Focus" },
-        "suggestedPrompt": {
-          "description": "Text the reader can copy into Studio's Assistant to reproduce this step's intent.",
-          "type": "string",
-          "minLength": 1
         }
       }
     },
