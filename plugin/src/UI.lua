@@ -14,6 +14,8 @@ local Fetch = require(script.Parent.Fetch)
 
 local SETTING_URLS = "TutorialPlugin_LessonUrls"
 local SETTING_LESSONS = "TutorialPlugin_CachedLessons"
+local SETTING_LAST_FETCH = "TutorialPlugin_LastFetchUnix"
+local REFRESH_EVERY_SECONDS = 24 * 60 * 60
 
 -- Default registry pointed at this project's public samples repo so the
 -- library is never empty on a fresh install. Seeded whenever both the URL
@@ -590,7 +592,7 @@ end
 -- Library view
 -- ============================================================
 
-local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> (), onSettings: () -> ())
+local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> (), onSettings: () -> (), onRefresh: () -> ())
 	for _, child in ipairs(parent:GetChildren()) do
 		child:Destroy()
 	end
@@ -621,7 +623,7 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	headerLayout.Parent = header
 
 	local title = Instance.new("TextLabel")
-	title.Size = UDim2.new(1, -90, 1, 0)
+	title.Size = UDim2.new(1, -160, 1, 0)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.GothamBold
 	title.TextSize = 16
@@ -629,6 +631,24 @@ local function showLibrary(parent: GuiObject, lessons, onPick: (lesson: any) -> 
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.Text = "Tutorials"
 	title.Parent = header
+
+	local refreshBtn = Instance.new("TextButton")
+	refreshBtn.Size = UDim2.new(0, 68, 1, 0)
+	refreshBtn.BackgroundColor3 = ROW
+	refreshBtn.Font = Enum.Font.Gotham
+	refreshBtn.TextSize = 12
+	refreshBtn.TextColor3 = TEXT
+	refreshBtn.Text = "↻ Refresh"
+	refreshBtn.Parent = header
+	corner(refreshBtn, 4)
+	refreshBtn.Activated:Connect(function()
+		refreshBtn.Text = "↻ ..."
+		refreshBtn.Active = false
+		refreshBtn.AutoButtonColor = false
+		task.spawn(function()
+			onRefresh()
+		end)
+	end)
 
 	local settingsBtn = Instance.new("TextButton")
 	settingsBtn.Size = UDim2.new(0, 82, 1, 0)
@@ -1175,39 +1195,48 @@ local function create(parent: GuiObject, plugin: Plugin, builtinLessons)
 	local urls = plugin:GetSetting(SETTING_URLS) or {}
 	local cached = plugin:GetSetting(SETTING_LESSONS) or {}
 
-	-- Seed the default registry if the user has nothing configured. This
-	-- runs on every load (not just the first) so if a fetch previously
-	-- failed silently (e.g. HTTP not enabled), reloading after enabling
-	-- HTTP recovers automatically.
+	-- Seed the default registry if the user has nothing configured.
 	if #urls == 0 and #cached == 0 then
 		table.insert(urls, DEFAULT_REGISTRY_URL)
 		plugin:SetSetting(SETTING_URLS, urls)
 	end
 
-	-- Blocking fetch on startup when we have URLs but no cached lessons.
-	-- One-time cost; afterward `cached` is persisted and subsequent opens
-	-- are instant. Errors are logged but not fatal — the library just
-	-- starts empty and the user can retry from Manage.
-	if #cached == 0 and #urls > 0 then
+	-- Fetch all configured URLs and replace the local cache. Returns true on
+	-- any success, false if every URL failed (cache is left untouched in
+	-- that case so the library doesn't vanish on a transient network error).
+	local function refreshFromRemotes(): boolean
+		if #urls == 0 then return false end
+		local fresh: { any } = {}
+		local anyOk = false
 		for _, url in ipairs(urls) do
 			local lessons, errorsOrErr = Fetch.fromRepoIndex(url)
 			if lessons and #lessons > 0 then
+				anyOk = true
 				for _, l in ipairs(lessons) do
-					table.insert(cached, l)
+					table.insert(fresh, l)
 				end
 			else
-				-- fromRepoIndex returns (nil, errString) on top-level failure,
-				-- or (lessons, errorsArray) when some entries resolved. Surface
-				-- whichever fits so HTTP-disabled / wrong-URL is obvious.
 				local msg = typeof(errorsOrErr) == "string" and errorsOrErr
 					or (typeof(errorsOrErr) == "table" and table.concat(errorsOrErr, "; "))
 					or "unknown error"
 				warn(`[tutorial] fetch from '{url}' failed: {msg}`)
 			end
 		end
-		if #cached > 0 then
+		if anyOk then
+			cached = fresh
 			plugin:SetSetting(SETTING_LESSONS, cached)
+			plugin:SetSetting(SETTING_LAST_FETCH, os.time())
 		end
+		return anyOk
+	end
+
+	-- On load, fetch if the cache is empty OR if it's been more than a day
+	-- since the last successful fetch. Manual refresh is available from the
+	-- library header too.
+	local lastFetch = plugin:GetSetting(SETTING_LAST_FETCH) or 0
+	local ageSec = os.time() - lastFetch
+	if #cached == 0 or ageSec >= REFRESH_EVERY_SECONDS then
+		refreshFromRemotes()
 	end
 
 	local function allLessons()
@@ -1229,6 +1258,11 @@ local function create(parent: GuiObject, plugin: Plugin, builtinLessons)
 			showLesson(parent, lesson, goLibrary)
 		end, function()
 			goSettings()
+		end, function()
+			-- Refresh callback: fetch remotes, then rerender the library.
+			if refreshFromRemotes() then
+				goLibrary()
+			end
 		end)
 	end
 	goSettings = function()
