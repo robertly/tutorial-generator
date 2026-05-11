@@ -9,6 +9,7 @@
 
 local Apply = require(script.Parent.Playback.Apply)
 local Diff = require(script.Parent.Playback.Diff)
+local Preflight = require(script.Parent.Playback.Preflight)
 local Fetch = require(script.Parent.Fetch)
 
 local SETTING_URLS = "TutorialPlugin_LessonUrls"
@@ -529,6 +530,70 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end)
 
 	render()
+end
+
+-- ============================================================
+-- Preflight error view
+-- ============================================================
+
+local function showPreflightError(parent: GuiObject, lessonTitle: string, message: string, onBack: () -> ())
+	for _, child in ipairs(parent:GetChildren()) do
+		child:Destroy()
+	end
+
+	local root = Instance.new("Frame")
+	root.BackgroundColor3 = BG
+	root.Size = UDim2.fromScale(1, 1)
+	root.BorderSizePixel = 0
+	root.Parent = parent
+	pad(root, 14, 14, 14, 14)
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.Padding = UDim.new(0, 10)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = root
+
+	local title = Instance.new("TextLabel")
+	title.LayoutOrder = 1
+	title.BackgroundTransparency = 1
+	title.Size = UDim2.new(1, 0, 0, 26)
+	title.Font = Enum.Font.GothamBold
+	title.TextSize = 15
+	title.TextColor3 = Color3.fromRGB(230, 170, 90)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Text = `Can't open: {lessonTitle}`
+	title.Parent = root
+
+	local body = Instance.new("TextLabel")
+	body.LayoutOrder = 2
+	body.BackgroundColor3 = Color3.fromRGB(46, 30, 20)
+	body.BorderSizePixel = 0
+	body.Size = UDim2.new(1, 0, 0, 0)
+	body.AutomaticSize = Enum.AutomaticSize.Y
+	body.Font = Enum.Font.Gotham
+	body.TextSize = 12
+	body.TextColor3 = TEXT
+	body.TextXAlignment = Enum.TextXAlignment.Left
+	body.TextYAlignment = Enum.TextYAlignment.Top
+	body.TextWrapped = true
+	body.Text = message
+	body.Parent = root
+	pad(body, 10, 12, 10, 12)
+	corner(body, 4)
+
+	local backBtn = Instance.new("TextButton")
+	backBtn.LayoutOrder = 3
+	backBtn.Size = UDim2.new(0, 180, 0, 30)
+	backBtn.BackgroundColor3 = ROW
+	backBtn.BorderSizePixel = 0
+	backBtn.Font = Enum.Font.Gotham
+	backBtn.TextSize = 13
+	backBtn.TextColor3 = TEXT
+	backBtn.Text = "← Back to library"
+	backBtn.Parent = root
+	corner(backBtn, 4)
+	backBtn.Activated:Connect(onBack)
 end
 
 -- ============================================================
@@ -1138,6 +1203,11 @@ local function create(parent: GuiObject, plugin: Plugin, builtinLessons)
 	local goSettings
 	goLibrary = function()
 		showLibrary(parent, allLessons(), function(lesson)
+			local ok, msg = Preflight.check(lesson)
+			if not ok then
+				showPreflightError(parent, lesson.title or lesson.id, msg or "Unknown preflight failure.", goLibrary)
+				return
+			end
 			showLesson(parent, lesson, goLibrary)
 		end, function()
 			goSettings()
