@@ -13,6 +13,12 @@ local Fetch = require(script.Parent.Fetch)
 
 local SETTING_URLS = "TutorialPlugin_LessonUrls"
 local SETTING_LESSONS = "TutorialPlugin_CachedLessons"
+local SETTING_SEEDED = "TutorialPlugin_DefaultRegistrySeeded"
+
+-- First-launch default: points at this project's public samples repo so the
+-- library isn't empty on first open. Only written if the user has never had
+-- any URLs — clearing the list by hand stays cleared.
+local DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/robertly/tutorial-generator/master/examples"
 
 local BG = Color3.fromRGB(40, 40, 40)
 local PANEL = Color3.fromRGB(32, 32, 32)
@@ -192,6 +198,36 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	promptBox.Visible = false
 	promptBox.Parent = root
 	pad(promptBox, 8, 10, 8, 10)
+
+	local copyBtn = Instance.new("TextButton")
+	copyBtn.Name = "CopyPrompt"
+	copyBtn.AnchorPoint = Vector2.new(1, 0)
+	copyBtn.Position = UDim2.new(1, -6, 0, 6)
+	copyBtn.Size = UDim2.new(0, 60, 0, 22)
+	copyBtn.BackgroundColor3 = ROW
+	copyBtn.BorderSizePixel = 0
+	copyBtn.Font = Enum.Font.Gotham
+	copyBtn.TextSize = 11
+	copyBtn.TextColor3 = TEXT
+	copyBtn.Text = "⧉ Copy"
+	copyBtn.AutoButtonColor = true
+	copyBtn.Parent = promptBox
+	corner(copyBtn, 4)
+	copyBtn.Activated:Connect(function()
+		local text = promptBox.Text
+		local ok = pcall(setclipboard, text)
+		if ok then
+			copyBtn.Text = "✓ Copied"
+			task.delay(1.2, function()
+				copyBtn.Text = "⧉ Copy"
+			end)
+		else
+			copyBtn.Text = "× Fail"
+			task.delay(1.2, function()
+				copyBtn.Text = "⧉ Copy"
+			end)
+		end
+	end)
 
 	-- ---- Button row ------------------------------------------------------
 	local buttonRow = Instance.new("Frame")
@@ -1068,6 +1104,27 @@ end
 -- ============================================================
 
 local function create(parent: GuiObject, plugin: Plugin, builtinLessons)
+	-- First launch: seed the default registry URL and kick off a background
+	-- fetch. Guarded by SETTING_SEEDED so clearing the list later stays cleared.
+	if not plugin:GetSetting(SETTING_SEEDED) then
+		plugin:SetSetting(SETTING_SEEDED, true)
+		local urls = plugin:GetSetting(SETTING_URLS) or {}
+		if #urls == 0 then
+			table.insert(urls, DEFAULT_REGISTRY_URL)
+			plugin:SetSetting(SETTING_URLS, urls)
+			task.spawn(function()
+				local lessons = Fetch.fromRepoIndex(DEFAULT_REGISTRY_URL)
+				if lessons and #lessons > 0 then
+					local cs = plugin:GetSetting(SETTING_LESSONS) or {}
+					for _, l in ipairs(lessons) do
+						table.insert(cs, l)
+					end
+					plugin:SetSetting(SETTING_LESSONS, cs)
+				end
+			end)
+		end
+	end
+
 	local cached = plugin:GetSetting(SETTING_LESSONS) or {}
 
 	local function allLessons()
