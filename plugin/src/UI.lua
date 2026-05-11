@@ -10,7 +10,6 @@
 local Apply = require(script.Parent.Playback.Apply)
 local Diff = require(script.Parent.Playback.Diff)
 local Fetch = require(script.Parent.Fetch)
-local McpClient = require(script.Parent.McpClient)
 
 local SETTING_URLS = "TutorialPlugin_LessonUrls"
 local SETTING_LESSONS = "TutorialPlugin_CachedLessons"
@@ -325,10 +324,9 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		onBack()
 	end)
 
-	-- Finish: close any open script docs (they cover the viewport), select
-	-- a BasePart so the camera has something to orbit, then try to start
-	-- play via the local StudioMCP proxy. If the proxy isn't reachable the
-	-- user still gets a focused viewport and can hit F5 themselves.
+	-- Give focus back to the 3D viewport by closing any open script docs
+	-- (so they stop covering the view) and selecting the first BasePart we
+	-- can find in Workspace so the viewport has something to orbit.
 	local function focusViewport()
 		pcall(function()
 			local ScriptEditorService = game:GetService("ScriptEditorService")
@@ -347,12 +345,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 				end
 			end
 			Selection:Set({})
-		end)
-		task.spawn(function()
-			local ok, result = McpClient.callTool("start_stop_play", { is_start = true }, 3)
-			if not ok then
-				warn(`[tutorial] MCP start_stop_play failed ({result}); press F5 to playtest.`)
-			end
 		end)
 	end
 
