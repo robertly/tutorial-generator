@@ -14,11 +14,11 @@ local Fetch = require(script.Parent.Fetch)
 
 local SETTING_URLS = "TutorialPlugin_LessonUrls"
 local SETTING_LESSONS = "TutorialPlugin_CachedLessons"
-local SETTING_SEEDED = "TutorialPlugin_DefaultRegistrySeeded"
 
--- First-launch default: points at this project's public samples repo so the
--- library isn't empty on first open. Only written if the user has never had
--- any URLs — clearing the list by hand stays cleared.
+-- Default registry pointed at this project's public samples repo so the
+-- library is never empty on a fresh install. Seeded whenever both the URL
+-- list and the lesson cache are empty — clearing everything via Manage will
+-- re-seed it, which is almost always what the user wants.
 local DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/robertly/tutorial-generator/master/examples"
 
 local BG = Color3.fromRGB(40, 40, 40)
@@ -1169,28 +1169,43 @@ end
 -- ============================================================
 
 local function create(parent: GuiObject, plugin: Plugin, builtinLessons)
-	-- First launch: seed the default registry URL and kick off a background
-	-- fetch. Guarded by SETTING_SEEDED so clearing the list later stays cleared.
-	if not plugin:GetSetting(SETTING_SEEDED) then
-		plugin:SetSetting(SETTING_SEEDED, true)
-		local urls = plugin:GetSetting(SETTING_URLS) or {}
-		if #urls == 0 then
-			table.insert(urls, DEFAULT_REGISTRY_URL)
-			plugin:SetSetting(SETTING_URLS, urls)
-			task.spawn(function()
-				local lessons = Fetch.fromRepoIndex(DEFAULT_REGISTRY_URL)
-				if lessons and #lessons > 0 then
-					local cs = plugin:GetSetting(SETTING_LESSONS) or {}
-					for _, l in ipairs(lessons) do
-						table.insert(cs, l)
-					end
-					plugin:SetSetting(SETTING_LESSONS, cs)
-				end
-			end)
-		end
+	local urls = plugin:GetSetting(SETTING_URLS) or {}
+	local cached = plugin:GetSetting(SETTING_LESSONS) or {}
+
+	-- Seed the default registry if the user has nothing configured. This
+	-- runs on every load (not just the first) so if a fetch previously
+	-- failed silently (e.g. HTTP not enabled), reloading after enabling
+	-- HTTP recovers automatically.
+	if #urls == 0 and #cached == 0 then
+		table.insert(urls, DEFAULT_REGISTRY_URL)
+		plugin:SetSetting(SETTING_URLS, urls)
 	end
 
-	local cached = plugin:GetSetting(SETTING_LESSONS) or {}
+	-- Blocking fetch on startup when we have URLs but no cached lessons.
+	-- One-time cost; afterward `cached` is persisted and subsequent opens
+	-- are instant. Errors are logged but not fatal — the library just
+	-- starts empty and the user can retry from Manage.
+	if #cached == 0 and #urls > 0 then
+		for _, url in ipairs(urls) do
+			local lessons, errorsOrErr = Fetch.fromRepoIndex(url)
+			if lessons and #lessons > 0 then
+				for _, l in ipairs(lessons) do
+					table.insert(cached, l)
+				end
+			else
+				-- fromRepoIndex returns (nil, errString) on top-level failure,
+				-- or (lessons, errorsArray) when some entries resolved. Surface
+				-- whichever fits so HTTP-disabled / wrong-URL is obvious.
+				local msg = typeof(errorsOrErr) == "string" and errorsOrErr
+					or (typeof(errorsOrErr) == "table" and table.concat(errorsOrErr, "; "))
+					or "unknown error"
+				warn(`[tutorial] fetch from '{url}' failed: {msg}`)
+			end
+		end
+		if #cached > 0 then
+			plugin:SetSetting(SETTING_LESSONS, cached)
+		end
+	end
 
 	local function allLessons()
 		local out = {}
