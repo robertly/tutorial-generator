@@ -183,11 +183,20 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	pad(diffLabel, 8, 10, 8, 10)
 
 	-- ---- Prompt box (prompt steps) --------------------------------------
+	-- Wrapper frame so the Copy button is a sibling of the TextBox, not a
+	-- child — a child button inside a TextBox has its clicks captured by
+	-- the TextBox's focus logic.
+	local promptContainer = Instance.new("Frame")
+	promptContainer.LayoutOrder = 6
+	promptContainer.BackgroundTransparency = 1
+	promptContainer.Size = UDim2.new(1, 0, 0, 110)
+	promptContainer.Visible = false
+	promptContainer.Parent = root
+
 	local promptBox = Instance.new("TextBox")
-	promptBox.LayoutOrder = 6
 	promptBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	promptBox.BorderSizePixel = 0
-	promptBox.Size = UDim2.new(1, 0, 0, 110)
+	promptBox.Size = UDim2.new(1, 0, 1, 0)
 	promptBox.Font = Enum.Font.Code
 	promptBox.TextSize = 12
 	promptBox.TextColor3 = Color3.fromRGB(200, 220, 240)
@@ -196,15 +205,14 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	promptBox.TextWrapped = true
 	promptBox.MultiLine = true
 	promptBox.ClearTextOnFocus = false
-	promptBox.Visible = false
-	promptBox.Parent = root
+	promptBox.Parent = promptContainer
 	pad(promptBox, 8, 10, 8, 10)
 
 	local copyBtn = Instance.new("TextButton")
 	copyBtn.Name = "CopyPrompt"
 	copyBtn.AnchorPoint = Vector2.new(1, 0)
 	copyBtn.Position = UDim2.new(1, -6, 0, 6)
-	copyBtn.Size = UDim2.new(0, 60, 0, 22)
+	copyBtn.Size = UDim2.new(0, 64, 0, 22)
 	copyBtn.BackgroundColor3 = ROW
 	copyBtn.BorderSizePixel = 0
 	copyBtn.Font = Enum.Font.Gotham
@@ -212,22 +220,23 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	copyBtn.TextColor3 = TEXT
 	copyBtn.Text = "⧉ Copy"
 	copyBtn.AutoButtonColor = true
-	copyBtn.Parent = promptBox
+	copyBtn.ZIndex = 3
+	copyBtn.Parent = promptContainer
 	corner(copyBtn, 4)
 	copyBtn.Activated:Connect(function()
 		local text = promptBox.Text
-		local ok = pcall(setclipboard, text)
+		local ok, err = pcall(function()
+			setclipboard(text)
+		end)
 		if ok then
 			copyBtn.Text = "✓ Copied"
-			task.delay(1.2, function()
-				copyBtn.Text = "⧉ Copy"
-			end)
 		else
+			warn(`[tutorial] copy failed: {err}`)
 			copyBtn.Text = "× Fail"
-			task.delay(1.2, function()
-				copyBtn.Text = "⧉ Copy"
-			end)
 		end
+		task.delay(1.2, function()
+			copyBtn.Text = "⧉ Copy"
+		end)
 	end)
 
 	-- ---- Button row ------------------------------------------------------
@@ -301,10 +310,10 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		end
 
 		if stepToShow.type == "prompt" and stepToShow.suggestedPrompt then
-			promptBox.Visible = true
+			promptContainer.Visible = true
 			promptBox.Text = stepToShow.suggestedPrompt
 		else
-			promptBox.Visible = false
+			promptContainer.Visible = false
 		end
 
 		prevBtn.Active = currentIndex > 0
