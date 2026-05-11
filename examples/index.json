@@ -17,6 +17,18 @@
       "title": "Spinning platform",
       "path": "spinning-platform/lesson.json",
       "tags": ["animation", "runtime", "beginner"]
+    },
+    {
+      "id": "leaderboard-stats",
+      "title": "Leaderboard stats",
+      "path": "leaderboard-stats/lesson.json",
+      "tags": ["players", "events", "beginner"]
+    },
+    {
+      "id": "daynight-cycle",
+      "title": "Day/night cycle",
+      "path": "daynight-cycle/lesson.json",
+      "tags": ["lighting", "runtime", "beginner"]
     }
   ]
 }

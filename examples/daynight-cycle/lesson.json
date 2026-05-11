@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "daynight-cycle",
+  "title": "Day/night cycle",
+  "goal": "Advance Lighting.ClockTime every frame for a fast, visible day/night loop.",
+  "tags": ["beginner", "lighting", "runtime"],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "`Lighting.ClockTime` is a number between 0 and 24 that sets the in-game time of day. The engine maps it to sun position, sky gradient, and ambient color. You don't have to touch a single material or light source — advancing the clock is enough."
+    },
+    {
+      "id": "s2-set-dusk",
+      "type": "scripted",
+      "body": "Kick things off at dusk so the first frame looks dramatic. You can see the same field under Lighting in the Explorer — everything below the hood is just properties.",
+      "action": {
+        "op": "setProperty",
+        "target": "Lighting",
+        "property": "ClockTime",
+        "value": 17.5
+      },
+      "focus": {
+        "selection": "Lighting"
+      }
+    },
+    {
+      "id": "s2b-brighter",
+      "type": "scripted",
+      "body": "Bump Brightness so the sun reads more strongly against the sky gradient.",
+      "action": {
+        "op": "setProperty",
+        "target": "Lighting",
+        "property": "Brightness",
+        "value": 2
+      },
+      "focus": {
+        "selection": "Lighting"
+      }
+    },
+    {
+      "id": "s3-create-driver",
+      "type": "codeEdit",
+      "body": "A server Script under ServerScriptService drives the clock. Heartbeat fires every tick with the real elapsed time — we multiply to compress a full in-game day into a short window.",
+      "target": {
+        "path": "ServerScriptService.DayNightDriver",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "-- Advance Lighting.ClockTime by Heartbeat. HOURS_PER_REAL_SECOND controls\n-- how fast the in-game day runs; 1 real second = 1 in-game hour at 1.0.\nlocal Lighting = game:GetService(\"Lighting\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal HOURS_PER_REAL_SECOND = 1.0\n\nRunService.Heartbeat:Connect(function(dt)\n\tLighting.ClockTime = (Lighting.ClockTime + dt * HOURS_PER_REAL_SECOND) % 24\nend)\n",
+      "focus": {
+        "script": {
+          "path": "ServerScriptService.DayNightDriver"
+        }
+      }
+    },
+    {
+      "id": "s4-faster",
+      "type": "codeEdit",
+      "body": "Bump the speed to 3 hours per real second. The sky transition now reads clearly while you watch.",
+      "target": {
+        "path": "ServerScriptService.DayNightDriver"
+      },
+      "source": "-- Advance Lighting.ClockTime by Heartbeat. HOURS_PER_REAL_SECOND controls\n-- how fast the in-game day runs; 1 real second = 1 in-game hour at 1.0.\nlocal Lighting = game:GetService(\"Lighting\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal HOURS_PER_REAL_SECOND = 3.0\n\nRunService.Heartbeat:Connect(function(dt)\n\tLighting.ClockTime = (Lighting.ClockTime + dt * HOURS_PER_REAL_SECOND) % 24\nend)\n",
+      "focus": {
+        "script": {
+          "path": "ServerScriptService.DayNightDriver",
+          "startLine": 6,
+          "endLine": 6
+        }
+      }
+    },
+    {
+      "id": "s5-try-prompt",
+      "type": "prompt",
+      "body": "The sky does the heavy lifting but the ground stays static. Try asking Assistant to also fade ambient color through a warm-to-cool gradient synced to ClockTime.",
+      "suggestedPrompt": "Update ServerScriptService.DayNightDriver so that Lighting.Ambient and Lighting.OutdoorAmbient fade through a warm dawn tone around 6, a neutral mid-day tone around 12, and a cool dusk tone around 18. Keep the ClockTime driver untouched — just add an ambient color update inside the same Heartbeat callback."
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press ▶ Play (F5). Watch the sky cycle from dusk → night → dawn in a few seconds. Shift+F5 to stop and tweak `HOURS_PER_REAL_SECOND` if the pace isn't right for what you're building."
+    }
+  ]
+}

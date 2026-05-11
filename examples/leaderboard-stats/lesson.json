@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "id": "leaderboard-stats",
+  "title": "Leaderboard stats",
+  "goal": "Show a Coins value for each player in the default leaderboard UI.",
+  "tags": ["beginner", "players", "events"],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Roblox games get a free in-game leaderboard as soon as each player has a `Folder` named `leaderstats` under them containing `IntValue` or `StringValue` objects. No UI work required — the engine picks it up automatically. This lesson wires that up for a single 'Coins' stat."
+    },
+    {
+      "id": "s2-create-script",
+      "type": "codeEdit",
+      "body": "Create a server script under ServerScriptService. It'll listen for `Players.PlayerAdded` and build the folder+value structure.",
+      "target": {
+        "path": "ServerScriptService.Leaderstats",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "-- Leaderstats bootstrap — runs on the server for every joining player.\nlocal Players = game:GetService(\"Players\")\n\nlocal function onPlayerAdded(player)\n\tlocal folder = Instance.new(\"Folder\")\n\tfolder.Name = \"leaderstats\"\n\tfolder.Parent = player\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "focus": {
+        "script": {
+          "path": "ServerScriptService.Leaderstats"
+        }
+      }
+    },
+    {
+      "id": "s3-add-coins",
+      "type": "codeEdit",
+      "body": "Add an `IntValue` named `Coins` inside the folder. Because the folder is named exactly `leaderstats`, the engine recognises it and shows `Coins` as a column automatically.",
+      "target": {
+        "path": "ServerScriptService.Leaderstats"
+      },
+      "source": "-- Leaderstats bootstrap — runs on the server for every joining player.\nlocal Players = game:GetService(\"Players\")\n\nlocal function onPlayerAdded(player)\n\tlocal folder = Instance.new(\"Folder\")\n\tfolder.Name = \"leaderstats\"\n\tfolder.Parent = player\n\n\tlocal coins = Instance.new(\"IntValue\")\n\tcoins.Name = \"Coins\"\n\tcoins.Value = 0\n\tcoins.Parent = folder\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "focus": {
+        "script": {
+          "path": "ServerScriptService.Leaderstats",
+          "startLine": 9,
+          "endLine": 12
+        }
+      }
+    },
+    {
+      "id": "s4-reward-loop",
+      "type": "codeEdit",
+      "body": "Give every player +1 coin per second with a simple loop. Any code that touches a player's stats should run on the server — client-side writes don't replicate for security.",
+      "target": {
+        "path": "ServerScriptService.Leaderstats"
+      },
+      "source": "-- Leaderstats bootstrap — runs on the server for every joining player.\nlocal Players = game:GetService(\"Players\")\n\nlocal function onPlayerAdded(player)\n\tlocal folder = Instance.new(\"Folder\")\n\tfolder.Name = \"leaderstats\"\n\tfolder.Parent = player\n\n\tlocal coins = Instance.new(\"IntValue\")\n\tcoins.Name = \"Coins\"\n\tcoins.Value = 0\n\tcoins.Parent = folder\n\n\twhile player.Parent do\n\t\ttask.wait(1)\n\t\tcoins.Value += 1\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "focus": {
+        "script": {
+          "path": "ServerScriptService.Leaderstats",
+          "startLine": 14,
+          "endLine": 17
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press ▶ Play (F5). The leaderboard appears in the top-right and the Coins counter ticks up once per second. Shift+F5 to stop. Try running two clients from Test → Start → 2 players to see how each player gets their own counter."
+    }
+  ]
+}
