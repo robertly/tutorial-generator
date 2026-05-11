@@ -2,31 +2,30 @@
   "schemaVersion": 1,
   "id": "raycast-basics",
   "title": "Raycast basics",
-  "goal": "Cast a ray from a Part and react to what it hits.",
+  "goal": "Cast a downward ray from an emitter part when something touches it, and print what it hit.",
   "tags": [
     "raycasting",
-    "beginner",
-    "events"
+    "events",
+    "beginner"
   ],
   "assets": [
     {
       "kind": "model",
       "source": "ReplicatedStorage.TutorialAssets.raycast-basics.EmitterRig",
       "name": "Emitter rig",
-      "description": "Pre-built target mesh for the ray to hit."
+      "description": "Pre-built target rig used as the ray's hit surface. Bundled in TutorialsPlace.rbxlx."
     }
   ],
   "steps": [
     {
       "id": "s1-intro",
       "type": "narrative",
-      "body": "Raycasting lets you detect what a ray crosses in the world. In this\nlesson we'll build an **emitter** part in Workspace that fires a ray\nstraight down whenever it's touched, then drop in a target for the\nray to hit.\n",
-      "explain": "Raycasting is used everywhere: line-of-sight checks, projectile\nweapons, laser pointers, cursor picking, AI vision cones. The\nprimitive is always the same — an origin point plus a direction\nvector — and the world tells you what (if anything) the ray crossed.\n"
+      "body": "Raycasting is how code asks the world \"what's along this line?\" \u2014\nuseful for lasers, line-of-sight checks, projectile previews, or\njust \"what did the player step on?\" The modern API is\n`workspace:Raycast(origin, direction)`. You pass a starting point\nand a direction vector (length = max distance), and the engine\nreturns a result with `.Instance`, `.Position`, `.Normal`, and\n`.Material` \u2014 or `nil` if nothing was in the way.\n\nWe'll build a small demo: a flat emitter part that fires a\ndownward ray whenever something touches it, and a target rig\nsitting below it so the ray has something to report.\n"
     },
     {
       "id": "s2-create-emitter",
       "type": "scripted",
-      "body": "First, create the **Emitter** part in Workspace. Flat and anchored so\nit stays put and it's obvious where the ray starts from.\n",
+      "body": "A flat, anchored Part in Workspace acts as our emitter. Flat so the\ntouch surface is obvious, anchored so physics doesn't drag it\naround while you're testing.\n",
       "action": {
         "op": "createInstance",
         "class": "Part",
@@ -35,17 +34,17 @@
           "Name": "Emitter",
           "Anchored": true,
           "Size": [
-            4,
+            6,
             1,
-            4
+            6
           ],
           "Position": [
             0,
-            10,
+            8,
             0
           ],
-          "Material": "Enum.Material.Metal",
-          "BrickColor": "Really red"
+          "Material": "Enum.Material.Neon",
+          "BrickColor": "Cyan"
         }
       },
       "focus": {
@@ -55,42 +54,23 @@
     {
       "id": "s3-add-handler",
       "type": "codeEdit",
-      "body": "Add a **Handler** script under the emitter. On Touched, it casts a\nray 50 studs straight down and prints what it hit (if anything).\n",
-      "explain": "`workspace:Raycast(origin, direction)` returns a `RaycastResult` or\n`nil`. The direction's magnitude is the ray's length — `Vector3.yAxis * -50`\nmeans \"50 studs downward.\"\n",
+      "body": "A server Script under the emitter connects to its `.Touched`\nevent and casts a ray 50 studs straight down. `Vector3.yAxis`\nreads cleaner than `Vector3.new(0, 1, 0)` and avoids typos.\n\nWhen the ray hits something, we read the hit instance and\nposition out of the result and print them. When it misses,\n`result` is `nil` and we say so.\n",
       "target": {
         "path": "Workspace.Emitter.Handler",
         "create": true,
         "class": "Script"
       },
-      "source": "local emitter = script.Parent\n\nlocal function onTouch(hit)\n  local origin = emitter.Position\n  local direction = Vector3.yAxis * -50\n  local result = workspace:Raycast(origin, direction)\n  if result then\n    print(\"Ray hit:\", result.Instance:GetFullName(), \"at\", result.Position)\n  else\n    print(\"Ray hit nothing.\")\n  end\nend\n\nemitter.Touched:Connect(onTouch)\n",
+      "source": "-- Fires a downward ray from the emitter each time it's touched.\nlocal emitter = script.Parent\n\nlocal RAY_LENGTH = 50\n\nemitter.Touched:Connect(function(_other)\n\tlocal origin = emitter.Position\n\tlocal direction = -Vector3.yAxis * RAY_LENGTH\n\tlocal result = workspace:Raycast(origin, direction)\n\n\tif result then\n\t\tprint(`Ray hit: {result.Instance:GetFullName()} at {result.Position}`)\n\telse\n\t\tprint(\"Ray missed \u2014 nothing in range.\")\n\tend\nend)\n",
       "focus": {
         "script": {
-          "path": "Workspace.Emitter.Handler",
-          "startLine": 1,
-          "endLine": 14
+          "path": "Workspace.Emitter.Handler"
         }
       }
     },
     {
-      "id": "s4-ignore-self",
-      "type": "codeEdit",
-      "body": "The emitter will detect itself if we're not careful. Add a\n`RaycastParams` that filters out the emitter so we only see *other*\nthings the ray crosses.\n",
-      "target": {
-        "path": "Workspace.Emitter.Handler"
-      },
-      "source": "local emitter = script.Parent\n\nlocal params = RaycastParams.new()\nparams.FilterType = Enum.RaycastFilterType.Exclude\nparams.FilterDescendantsInstances = { emitter }\n\nlocal function onTouch(hit)\n  local origin = emitter.Position\n  local direction = Vector3.yAxis * -50\n  local result = workspace:Raycast(origin, direction, params)\n  if result then\n    print(\"Ray hit:\", result.Instance:GetFullName(), \"at\", result.Position)\n  else\n    print(\"Ray hit nothing.\")\n  end\nend\n\nemitter.Touched:Connect(onTouch)\n",
-      "focus": {
-        "script": {
-          "path": "Workspace.Emitter.Handler",
-          "startLine": 3,
-          "endLine": 5
-        }
-      }
-    },
-    {
-      "id": "s5-drop-target",
+      "id": "s4-clone-target",
       "type": "scripted",
-      "body": "Clone in the bundled target rig so the ray has something interesting\nto hit. It lands below the emitter by default.\n",
+      "body": "For the ray to hit something interesting, drop the pre-built\ntarget rig into Workspace. It's bundled in the shared tutorials\nplace under `ReplicatedStorage.TutorialAssets`, so no marketplace\nlookup or external download is needed.\n",
       "action": {
         "op": "cloneFromAssets",
         "source": "ReplicatedStorage.TutorialAssets.raycast-basics.EmitterRig",
@@ -102,38 +82,15 @@
       }
     },
     {
-      "id": "s6-position-target",
-      "type": "scripted",
-      "body": "Nudge the target directly below the emitter so the ray hits it cleanly.",
-      "action": {
-        "op": "setProperty",
-        "target": "Workspace.Target",
-        "property": "Position",
-        "value": [
-          0,
-          2,
-          0
-        ]
-      },
-      "focus": {
-        "selection": "Workspace.Target"
-      }
-    },
-    {
-      "id": "s7-continuous",
+      "id": "s5-prompt-upgrade",
       "type": "prompt",
-      "body": "Right now the ray only fires when something touches the emitter.\nLet's make it fire continuously instead — a good moment to hand\noff to Studio's Assistant.\n",
-      "suggestedPrompt": "Modify Workspace.Emitter.Handler so the ray fires every 0.5 seconds\nusing a while loop and task.wait, instead of firing on Touched.\nWhen the ray hits Workspace.Target, print \"Target spotted!\".\nKeep the RaycastParams exclusion for the emitter itself.\n",
-      "focus": {
-        "script": {
-          "path": "Workspace.Emitter.Handler"
-        }
-      }
+      "body": "The handler only fires when something physically touches the\nemitter, which is quiet during normal play. A useful extension\nis to fire on a steady interval so you can watch the ray work\neven when nothing's moving.\n",
+      "suggestedPrompt": "Modify Workspace.Emitter.Handler so that instead of only firing\non .Touched, it also casts the same downward ray every 0.5\nseconds using a task.spawn loop. Keep the existing Touched\nbehavior intact. Print the hit the same way for both sources.\n"
     },
     {
-      "id": "s8-playtest",
+      "id": "s6-playtest",
       "type": "narrative",
-      "body": "Press ▶ **Play** (or F5) to run the world. Walk your character onto\nthe emitter — you should see a line like `Ray hit: Workspace.Target\nat ...` print in the Output window each time you step on it.\nShift+F5 to stop.\n"
+      "body": "Press \u25b6 Play (or F5). Walk your character onto the cyan emitter\n\u2014 each step triggers a fresh raycast and you'll see\n\"Ray hit: Workspace.Target.*\" lines stream into the Output\nwindow. Step off the target and the ray will eventually hit the\nbaseplate or report a miss. Shift+F5 to stop.\n"
     }
   ]
 }
