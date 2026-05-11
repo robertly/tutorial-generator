@@ -21,21 +21,38 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- block. Placeholder instances below are stand-ins — replace with real
 -- content once authored.
 local SAMPLES: { [string]: { [string]: (parent: Instance) -> () } } = {
-	-- Example: if raycast-basics gains an EmitterRig, uncomment and extend.
-	-- ["raycast-basics"] = {
-	-- 	EmitterRig = function(parent)
-	-- 		local m = Instance.new("Model")
-	-- 		m.Name = "EmitterRig"
-	-- 		local p = Instance.new("Part")
-	-- 		p.Name = "Core"
-	-- 		p.Size = Vector3.new(2, 2, 2)
-	-- 		p.Material = Enum.Material.Neon
-	-- 		p.BrickColor = BrickColor.new("Really red")
-	-- 		p.Parent = m
-	-- 		m.PrimaryPart = p
-	-- 		m.Parent = parent
-	-- 	end,
-	-- },
+	["raycast-basics"] = {
+		-- A visible target the raycast lesson drops into Workspace. Big
+		-- enough that the downward ray from the emitter can't miss; neon
+		-- so the hit position reads clearly in the viewport.
+		EmitterRig = function(parent)
+			local model = Instance.new("Model")
+			model.Name = "EmitterRig"
+
+			local base = Instance.new("Part")
+			base.Name = "Base"
+			base.Anchored = true
+			base.Size = Vector3.new(10, 1, 10)
+			base.Position = Vector3.new(0, 1, 0)
+			base.Material = Enum.Material.SmoothPlastic
+			base.BrickColor = BrickColor.new("Dark stone grey")
+			base.Parent = model
+
+			local bullseye = Instance.new("Part")
+			bullseye.Name = "Bullseye"
+			bullseye.Anchored = true
+			bullseye.Shape = Enum.PartType.Cylinder
+			bullseye.Size = Vector3.new(0.2, 3, 3)
+			-- Rotate so the flat face points up (cylinders extrude along +X).
+			bullseye.CFrame = CFrame.new(0, 1.6, 0) * CFrame.Angles(0, 0, math.rad(90))
+			bullseye.Material = Enum.Material.Neon
+			bullseye.BrickColor = BrickColor.new("Really red")
+			bullseye.Parent = model
+
+			model.PrimaryPart = base
+			model.Parent = parent
+		end,
+	},
 }
 
 local function getOrCreateFolder(parent: Instance, name: string): Folder
