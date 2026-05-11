@@ -282,6 +282,17 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	-- down once the strip's scrolling frame exists.
 	local stripButtons: { TextButton } = {}
 
+	-- Step-type → strip-button tint. Declared before render() (which uses
+	-- it) to sidestep Lua's top-down scoping.
+	local function typeColor(stepType: string): Color3
+		if stepType == "narrative" then return Color3.fromRGB(110, 110, 120)
+		elseif stepType == "scripted" then return Color3.fromRGB(70, 110, 160)
+		elseif stepType == "codeEdit" then return Color3.fromRGB(140, 90, 160)
+		elseif stepType == "prompt" then return Color3.fromRGB(180, 130, 60)
+		else return Color3.fromRGB(90, 90, 90)
+		end
+	end
+
 	local function render()
 		local previewIndex
 		local stepToShow
@@ -403,17 +414,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		autoBtn.BackgroundColor3 = ROW
 	end
 
-	-- Step-type → strip-button tint
-	local function typeColor(stepType: string): Color3
-		if stepType == "narrative" then return Color3.fromRGB(110, 110, 120)
-		elseif stepType == "scripted" then return Color3.fromRGB(70, 110, 160)
-		elseif stepType == "codeEdit" then return Color3.fromRGB(140, 90, 160)
-		elseif stepType == "prompt" then return Color3.fromRGB(180, 130, 60)
-		else return Color3.fromRGB(90, 90, 90)
-		end
-	end
-
-	-- Build the step strip once (stripButtons was forward-declared above).
+	-- Build the step strip once (stripButtons and typeColor forward-declared above).
 	for i, step in ipairs(lesson.steps) do
 		local btn = Instance.new("TextButton")
 		btn.Size = UDim2.new(0, 26, 0, 26)
