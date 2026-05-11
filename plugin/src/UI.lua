@@ -276,7 +276,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	-- ---- State + render --------------------------------------------------
 	local currentIndex = 0
 	local undoStack: { () -> () } = {}
-	local autoTask: thread? = nil
+	local autoRunning = false
 	local AUTO_SECONDS = 2.5
 
 	local function render()
@@ -395,10 +395,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end
 
 	local function stopAutoplay()
-		if autoTask then
-			pcall(task.cancel, autoTask)
-			autoTask = nil
-		end
+		autoRunning = false
 		autoBtn.Text = "▶ Auto"
 		autoBtn.BackgroundColor3 = ROW
 	end
@@ -509,14 +506,15 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end)
 
 	autoBtn.Activated:Connect(function()
-		if autoTask then
+		if autoRunning then
 			stopAutoplay()
 			return
 		end
+		autoRunning = true
 		autoBtn.Text = "⏸ Pause"
 		autoBtn.BackgroundColor3 = Color3.fromRGB(150, 120, 70)
-		autoTask = task.spawn(function()
-			while autoTask do
+		task.spawn(function()
+			while autoRunning do
 				if currentIndex >= #lesson.steps then
 					stopAutoplay()
 					focusViewport()
@@ -529,7 +527,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 					return
 				end
 				task.wait(AUTO_SECONDS)
-				if not autoTask then return end
+				if not autoRunning then return end
 				if not applyNext() then
 					stopAutoplay()
 					return
