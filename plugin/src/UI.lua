@@ -278,6 +278,9 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	local undoStack: { () -> () } = {}
 	local autoRunning = false
 	local AUTO_SECONDS = 2.5
+	-- Forward-declared so render() can see it; actually populated further
+	-- down once the strip's scrolling frame exists.
+	local stripButtons: { TextButton } = {}
 
 	local function render()
 		local previewIndex
@@ -410,8 +413,7 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		end
 	end
 
-	-- Build the step strip once.
-	local stripButtons: { TextButton } = {}
+	-- Build the step strip once (stripButtons was forward-declared above).
 	for i, step in ipairs(lesson.steps) do
 		local btn = Instance.new("TextButton")
 		btn.Size = UDim2.new(0, 26, 0, 26)
