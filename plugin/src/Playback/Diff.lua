@@ -18,11 +18,17 @@ local function splitLines(s: string): { string }
 end
 
 -- Classic LCS DP returning a 2-D length table.
+-- Note: table.create(count, value) fills indices 1..count, NOT 0. We need
+-- dp[0..m][0..n], so each inner row is initialized by hand.
 local function lcsLengths(a: { string }, b: { string })
 	local m, n = #a, #b
-	local dp = table.create(m + 1)
+	local dp = {}
 	for i = 0, m do
-		dp[i] = table.create(n + 1, 0)
+		local row = {}
+		for j = 0, n do
+			row[j] = 0
+		end
+		dp[i] = row
 	end
 	for i = 1, m do
 		for j = 1, n do
