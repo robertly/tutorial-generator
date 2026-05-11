@@ -513,6 +513,9 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		-- draw the overview shell instead of flashing per-step bodies.
 		overviewMode = true
 		applyAll()
+		-- Land the user on the viewport, not on whatever script the last
+		-- step's focus opened. They can still dig into scripts manually.
+		focusViewport()
 		render()
 	end
 
