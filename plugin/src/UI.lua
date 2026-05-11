@@ -275,6 +275,10 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	-- ---- State + render --------------------------------------------------
 	local currentIndex = 0
 	local undoStack: { () -> () } = {}
+	-- Overview mode: a lesson opens with every step already applied so the
+	-- user sees the finished result first. Clicking Next rewinds and starts
+	-- a step-by-step walkthrough.
+	local overviewMode = true
 	-- Forward-declared so render() can see it; actually populated further
 	-- down once the strip's scrolling frame exists.
 	local stripButtons: { TextButton } = {}
@@ -291,6 +295,34 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end
 
 	local function render()
+		-- Overview: finished result, no step framing. The body uses the
+		-- lesson goal as the hook, followed by a nudge toward Next.
+		if overviewMode then
+			counter.Text = `Overview — all {#lesson.steps} steps applied`
+			body.Text = (lesson.goal or lesson.title or "")
+				.. "\n\nMove around, inspect the result in the Explorer, or press ▶ Play (F5) to try it. Click Next ▶ to walk through how it was built, step by step."
+			diffScroll.Visible = false
+			promptContainer.Visible = false
+
+			prevBtn.Active = false
+			prevBtn.AutoButtonColor = false
+			prevBtn.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
+
+			nextBtn.Text = "▶ Step through"
+			nextBtn.Size = UDim2.new(0, 130, 1, 0)
+			nextBtn.Active = true
+			nextBtn.AutoButtonColor = true
+			nextBtn.BackgroundColor3 = ACCENT
+
+			for i, btn in ipairs(stripButtons) do
+				local base = typeColor(lesson.steps[i].type)
+				btn.BackgroundColor3 = base
+				btn.TextTransparency = 0
+				btn.BackgroundTransparency = 0
+			end
+			return
+		end
+
 		local previewIndex
 		local stepToShow
 		if currentIndex == 0 then
@@ -327,9 +359,11 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 			promptContainer.Visible = false
 		end
 
-		prevBtn.Active = currentIndex > 0
-		prevBtn.AutoButtonColor = currentIndex > 0
-		prevBtn.BackgroundColor3 = if currentIndex > 0 then ROW else Color3.fromRGB(34, 34, 34)
+		-- Prev is always available in step mode — from currentIndex=0 it
+		-- hops back to the overview rather than being disabled.
+		prevBtn.Active = true
+		prevBtn.AutoButtonColor = true
+		prevBtn.BackgroundColor3 = ROW
 
 		-- On the last step (whether previewing or already applied), swap
 		-- Next for a terminal "Finish" button.
@@ -457,13 +491,49 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		render()
 	end
 
+	-- Helpers to transition between modes. Keep them local to showLesson so
+	-- they close over currentIndex / undoStack / overviewMode directly.
+	local function rewindAll()
+		while currentIndex > 0 do
+			local undoFn = undoStack[currentIndex]
+			if undoFn then pcall(undoFn) end
+			undoStack[currentIndex] = nil
+			currentIndex -= 1
+		end
+	end
+
+	local function applyAll()
+		while currentIndex < #lesson.steps do
+			if not applyNext() then break end
+		end
+	end
+
+	local function enterOverview()
+		-- Flip the flag first so the incremental renders from applyNext()
+		-- draw the overview shell instead of flashing per-step bodies.
+		overviewMode = true
+		applyAll()
+		render()
+	end
+
+	local function leaveOverviewToFirstStep()
+		overviewMode = false
+		rewindAll()
+		render()
+	end
+
 	for i, btn in ipairs(stripButtons) do
 		btn.Activated:Connect(function()
-			scrubTo(i)
+			overviewMode = false
+			scrubTo(i - 1) -- land previewing step `i`, not having applied it
 		end)
 	end
 
 	nextBtn.Activated:Connect(function()
+		if overviewMode then
+			leaveOverviewToFirstStep()
+			return
+		end
 		if currentIndex >= #lesson.steps then
 			focusViewport()
 			return
@@ -475,7 +545,12 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end)
 
 	prevBtn.Activated:Connect(function()
-		if currentIndex <= 0 then return end
+		if overviewMode then return end
+		if currentIndex <= 0 then
+			-- At step 1 preview: going further back returns to overview.
+			enterOverview()
+			return
+		end
 		local undoFn = undoStack[currentIndex]
 		if undoFn then
 			local ok, err = pcall(undoFn)
@@ -489,16 +564,13 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end)
 
 	resetBtn.Activated:Connect(function()
-		while currentIndex > 0 do
-			local undoFn = undoStack[currentIndex]
-			if undoFn then pcall(undoFn) end
-			undoStack[currentIndex] = nil
-			currentIndex -= 1
-		end
-		render()
+		-- Reset always returns to the overview so the user lands back on
+		-- the "here's the finished thing" default.
+		enterOverview()
 	end)
 
-	render()
+	-- On open, apply every step so the user sees the finished result first.
+	enterOverview()
 end
 
 -- ============================================================
