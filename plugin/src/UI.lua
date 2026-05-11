@@ -1201,14 +1201,40 @@ local function create(parent: GuiObject, plugin: Plugin, builtinLessons)
 		plugin:SetSetting(SETTING_URLS, urls)
 	end
 
-	-- Fetch all configured URLs and replace the local cache. Returns true on
-	-- any success, false if every URL failed (cache is left untouched in
-	-- that case so the library doesn't vanish on a transient network error).
+	local RunService = game:GetService("RunService")
+
+	-- `urls` is a mixed array: direct lesson URLs, and synthetic
+	-- `baseUrl::lessonId` keys used for dedup in the Manage view. The
+	-- ::lessonId ones aren't GETtable — strip them out and dedup the
+	-- remaining base-URL prefixes so refresh only hits each repo once.
+	local function collectBaseUrls(): { string }
+		local seen: { [string]: true } = {}
+		local bases: { string } = {}
+		for _, u in ipairs(urls) do
+			local sep = string.find(u, "::", 1, true)
+			local base = if sep then string.sub(u, 1, sep - 1) else u
+			if base ~= "" and not seen[base] then
+				seen[base] = true
+				table.insert(bases, base)
+			end
+		end
+		return bases
+	end
+
+	-- Fetch from every configured repo URL and replace the cache on success.
+	-- Leaves the cache intact on total failure so the library doesn't blank
+	-- out on a transient error.
 	local function refreshFromRemotes(): boolean
-		if #urls == 0 then return false end
+		if not RunService:IsEdit() then
+			-- HTTP calls + plugin settings aren't reliable during playtest;
+			-- skip silently so we don't spam Output on every F5.
+			return false
+		end
+		local bases = collectBaseUrls()
+		if #bases == 0 then return false end
 		local fresh: { any } = {}
 		local anyOk = false
-		for _, url in ipairs(urls) do
+		for _, url in ipairs(bases) do
 			local lessons, errorsOrErr = Fetch.fromRepoIndex(url)
 			if lessons and #lessons > 0 then
 				anyOk = true
@@ -1232,11 +1258,13 @@ local function create(parent: GuiObject, plugin: Plugin, builtinLessons)
 
 	-- On load, fetch if the cache is empty OR if it's been more than a day
 	-- since the last successful fetch. Manual refresh is available from the
-	-- library header too.
-	local lastFetch = plugin:GetSetting(SETTING_LAST_FETCH) or 0
-	local ageSec = os.time() - lastFetch
-	if #cached == 0 or ageSec >= REFRESH_EVERY_SECONDS then
-		refreshFromRemotes()
+	-- library header too. Skipped entirely in playtest.
+	if RunService:IsEdit() then
+		local lastFetch = plugin:GetSetting(SETTING_LAST_FETCH) or 0
+		local ageSec = os.time() - lastFetch
+		if #cached == 0 or ageSec >= REFRESH_EVERY_SECONDS then
+			refreshFromRemotes()
+		end
 	end
 
 	local function allLessons()
