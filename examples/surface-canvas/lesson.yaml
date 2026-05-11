@@ -1,0 +1,139 @@
+schemaVersion: 1
+id: surface-canvas
+title: Surface canvas
+goal: Paint onto an EditableImage attached to a Part's SurfaceGui.
+tags:
+  - editableimage
+  - surfacegui
+  - interactive
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      `EditableImage` works just as well behind a `SurfaceGui` as behind
+      a `ScreenGui`. We'll put an EditableImage on the front face of a
+      Part and paint onto it with the mouse — like a wall-mounted
+      whiteboard in 3D space.
+
+  - id: s2-canvas
+    type: scripted
+    body: "A flat Part to paint on."
+    action:
+      op: createInstance
+      class: Part
+      parent: Workspace
+      props:
+        Name: Canvas
+        Anchored: true
+        Size: [16, 10, 1]
+        Position: [0, 6, -6]
+        Material: Enum.Material.SmoothPlastic
+        Color: [0.9, 0.9, 0.9]
+    focus:
+      selection: Workspace.Canvas
+
+  - id: s3-surfacegui
+    type: scripted
+    body: "SurfaceGui on the front face."
+    action:
+      op: createInstance
+      class: SurfaceGui
+      parent: Workspace.Canvas
+      props:
+        Name: SurfaceGui
+        Face: Enum.NormalId.Front
+        CanvasSize: [512, 320]
+        PixelsPerStud: 40
+    focus:
+      selection: Workspace.Canvas.SurfaceGui
+
+  - id: s4-image
+    type: scripted
+    body: "ImageLabel that fills the SurfaceGui."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: Workspace.Canvas.SurfaceGui
+      props:
+        Name: Image
+        Size: [1, 0, 1, 0]
+        BackgroundTransparency: 1
+    focus:
+      selection: Workspace.Canvas.SurfaceGui.Image
+
+  - id: s5-paint
+    type: codeEdit
+    body: |
+      The Paint LocalScript creates an EditableImage, checks that
+      `Mouse.Target` is our Part before painting, and maps the GUI-space
+      mouse position to pixel coordinates. The brush color rainbows over
+      time — click & drag to paint.
+    explain: |
+      `Mouse.Target` is the part under the cursor in 3D space — cheap
+      way to gate painting to only when the cursor is over the canvas.
+      For more accurate mapping on arbitrary faces, use `SurfaceGui`'s
+      local-space mouse position via a `BillboardGui`-style raycast.
+    target:
+      path: Workspace.Canvas.SurfaceGui.Image.Paint
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+      local UserInputService = game:GetService("UserInputService")
+      local Players = game:GetService("Players")
+
+      local W, H = 512, 512
+      local BRUSH_R = 12
+
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
+      img:DrawRectangle(Vector2.zero, img.Size, Color3.new(1, 1, 1), 0, Enum.ImageCombineType.Overwrite)
+      label.ImageContent = Content.fromObject(img)
+
+      local surfaceGui = label.Parent
+      local part = surfaceGui.Adornee or surfaceGui.Parent
+
+      local player = Players.LocalPlayer
+      local mouse = player:GetMouse()
+
+      local painting = false
+
+      local function tryPaint()
+        if mouse.Target ~= part then return end
+        local ap, as = label.AbsolutePosition, label.AbsoluteSize
+        local fx = (mouse.X - ap.X) / as.X
+        local fy = (mouse.Y - ap.Y) / as.Y
+        if fx < 0 or fx > 1 or fy < 0 or fy > 1 then return end
+        img:DrawCircle(
+          Vector2.new(fx * W, fy * H), BRUSH_R,
+          Color3.fromHSV(tick() % 1, 0.8, 1),
+          0, Enum.ImageCombineType.AlphaBlend
+        )
+      end
+
+      UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+          painting = true
+          tryPaint()
+        end
+      end)
+
+      UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+          painting = false
+        end
+      end)
+
+      mouse.Move:Connect(function()
+        if painting then tryPaint() end
+      end)
+    focus:
+      script:
+        path: Workspace.Canvas.SurfaceGui.Image.Paint
+
+  - id: s6-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). Walk up to the white canvas and click & drag
+      to paint rainbow strokes directly onto the Part. Shift+F5 to stop.

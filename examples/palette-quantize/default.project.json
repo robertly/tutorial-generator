@@ -1,0 +1,9 @@
+{
+  "name": "palette-quantize",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

@@ -1,0 +1,110 @@
+schemaVersion: 1
+id: paint-tool
+title: Paint tool
+goal: Draw strokes into an EditableImage with the mouse.
+tags:
+  - editableimage
+  - interactive
+  - tools
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      `EditableImage:DrawCircle` stamps a filled circle at a pixel
+      position. Combine it with mouse drag tracking and you have a
+      basic one-color paint brush.
+
+  - id: s2-gui
+    type: scripted
+    body: "ScreenGui host."
+    action:
+      op: createInstance
+      class: ScreenGui
+      parent: StarterGui
+      props:
+        Name: PaintGui
+        ResetOnSpawn: false
+    focus:
+      selection: StarterGui.PaintGui
+
+  - id: s3-canvas
+    type: scripted
+    body: "White canvas."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: StarterGui.PaintGui
+      props:
+        Name: Canvas
+        Size: [0, 512, 0, 512]
+        Position: [0.5, -256, 0.5, -256]
+        BackgroundColor3: [1, 1, 1]
+        BorderSizePixel: 2
+    focus:
+      selection: StarterGui.PaintGui.Canvas
+
+  - id: s4-paint
+    type: codeEdit
+    body: |
+      Add the Paint LocalScript. Mouse down starts a stroke; mouse move
+      stamps a circle per event. Mouse up ends the stroke.
+    explain: |
+      This emits one brush stamp per `InputChanged` event rather than
+      interpolating between points, so fast drags produce dotted lines.
+      For smooth strokes, interpolate with `DrawLine` or multiple
+      circles between the previous and current positions.
+    target:
+      path: StarterGui.PaintGui.Canvas.Paint
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+      local UserInputService = game:GetService("UserInputService")
+
+      local W, H = 512, 512
+      local BRUSH_RADIUS = 8
+      local COLOR = Color3.fromRGB(255, 60, 60)
+
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
+      img:DrawRectangle(Vector2.zero, img.Size, Color3.new(1, 1, 1), 0, Enum.ImageCombineType.Overwrite)
+      label.ImageContent = Content.fromObject(img)
+
+      local painting = false
+
+      local function toPixel(screenPos)
+        local ap, as = label.AbsolutePosition, label.AbsoluteSize
+        return Vector2.new(
+          math.floor((screenPos.X - ap.X) / as.X * W),
+          math.floor((screenPos.Y - ap.Y) / as.Y * H)
+        )
+      end
+
+      label.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+          painting = true
+          img:DrawCircle(toPixel(input.Position), BRUSH_RADIUS, COLOR, 0, Enum.ImageCombineType.AlphaBlend)
+        end
+      end)
+
+      UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+          painting = false
+        end
+      end)
+
+      UserInputService.InputChanged:Connect(function(input)
+        if painting and input.UserInputType == Enum.UserInputType.MouseMovement then
+          img:DrawCircle(toPixel(input.Position), BRUSH_RADIUS, COLOR, 0, Enum.ImageCombineType.AlphaBlend)
+        end
+      end)
+    focus:
+      script:
+        path: StarterGui.PaintGui.Canvas.Paint
+
+  - id: s5-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). Click and drag in the canvas to paint red
+      strokes. Fast drags will look dotted — see the `explain` panel for
+      the fix.

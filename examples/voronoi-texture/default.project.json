@@ -1,0 +1,9 @@
+{
+  "name": "voronoi-texture",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

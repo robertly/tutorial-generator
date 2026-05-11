@@ -1,0 +1,120 @@
+schemaVersion: 1
+id: mandelbrot
+title: Mandelbrot viewer
+goal: Render a fractal into an EditableImage and zoom on click.
+tags:
+  - editableimage
+  - graphics
+  - interactive
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      `EditableImage` lets us write raw pixel data at runtime. We'll
+      render the Mandelbrot set into one and let the user click to zoom
+      by 2×. A good way to feel how fast `WritePixelsBuffer` really is.
+
+  - id: s2-create-gui
+    type: scripted
+    body: "Create a ScreenGui in StarterGui to host the canvas."
+    action:
+      op: createInstance
+      class: ScreenGui
+      parent: StarterGui
+      props:
+        Name: MandelbrotGui
+        ResetOnSpawn: false
+    focus:
+      selection: StarterGui.MandelbrotGui
+
+  - id: s3-create-canvas
+    type: scripted
+    body: "Add a centered 512×512 ImageLabel as our pixel canvas."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: StarterGui.MandelbrotGui
+      props:
+        Name: Canvas
+        Size: [0, 512, 0, 512]
+        Position: [0.5, -256, 0.5, -256]
+        BackgroundColor3: [0, 0, 0]
+        BorderSizePixel: 0
+    focus:
+      selection: StarterGui.MandelbrotGui.Canvas
+
+  - id: s4-render-script
+    type: codeEdit
+    body: |
+      Add the LocalScript that creates an EditableImage, iterates the
+      Mandelbrot escape-time formula per pixel into a `buffer`, and binds
+      the image to the canvas. Clicking zooms in at the cursor.
+    explain: |
+      Pixels are packed as RGBA bytes — four bytes per pixel, row-major.
+      `WritePixelsBuffer` takes the whole buffer at once, which is much
+      cheaper than thousands of `DrawPixel` calls. The palette formula is
+      a smooth cubic map from iteration count to color.
+    target:
+      path: StarterGui.MandelbrotGui.Canvas.Render
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+
+      local WIDTH, HEIGHT = 256, 256
+      local MAX_ITER = 64
+
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(WIDTH, HEIGHT) })
+      local buf = buffer.create(WIDTH * HEIGHT * 4)
+
+      local cx, cy, zoom = -0.5, 0, 1.5
+
+      local function render()
+        local i = 0
+        for y = 0, HEIGHT - 1 do
+          local im0 = cy + (y / HEIGHT - 0.5) * 2 * zoom
+          for x = 0, WIDTH - 1 do
+            local re0 = cx + (x / WIDTH - 0.5) * 2 * zoom
+            local re, imv, n = 0, 0, 0
+            while re * re + imv * imv < 4 and n < MAX_ITER do
+              re, imv = re * re - imv * imv + re0, 2 * re * imv + im0
+              n += 1
+            end
+            local t = n / MAX_ITER
+            buffer.writeu8(buf, i,     math.floor(9 * (1 - t) * t * t * t * 255))
+            buffer.writeu8(buf, i + 1, math.floor(15 * (1 - t) * (1 - t) * t * t * 255))
+            buffer.writeu8(buf, i + 2, math.floor(8.5 * (1 - t) * (1 - t) * (1 - t) * t * 255))
+            buffer.writeu8(buf, i + 3, 255)
+            i += 4
+          end
+        end
+        img:WritePixelsBuffer(Vector2.zero, img.Size, buf)
+      end
+
+      render()
+      label.ImageContent = Content.fromObject(img)
+
+      label.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+          local ap = label.AbsolutePosition
+          local as = label.AbsoluteSize
+          local fx = (input.Position.X - ap.X) / as.X - 0.5
+          local fy = (input.Position.Y - ap.Y) / as.Y - 0.5
+          cx += fx * 2 * zoom
+          cy += fy * 2 * zoom
+          zoom *= 0.5
+          render()
+        end
+      end)
+    focus:
+      script:
+        path: StarterGui.MandelbrotGui.Canvas.Render
+
+  - id: s5-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). The fractal renders immediately. Click inside
+      the image — the view re-centers and zooms 2× deeper. Keep clicking
+      to explore. After ~15 clicks it starts to pixelate (need higher
+      iteration count). Shift+F5 to stop.

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "palette-quantize",
+  "title": "Palette quantize",
+  "goal": "Snap per-pixel color to the nearest entry in a 16-color palette.",
+  "tags": [
+    "editableimage",
+    "graphics",
+    "filters"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Pixel-art palettes like DawnBringer 16 pack expressive color\nranges into very few entries. Quantizing an image to a palette is\na one-liner per pixel: find the nearest palette color by squared\nRGB distance and write that.\n"
+    },
+    {
+      "id": "s2-gui",
+      "type": "scripted",
+      "body": "ScreenGui host.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "QuantizeGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.QuantizeGui"
+      }
+    },
+    {
+      "id": "s3-canvas",
+      "type": "scripted",
+      "body": "Canvas.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.QuantizeGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            512,
+            0,
+            512
+          ],
+          "Position": [
+            0.5,
+            -256,
+            0.5,
+            -256
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0,
+          "ResampleMode": "Enum.ResamplerMode.Pixelated"
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.QuantizeGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-quantize",
+      "type": "codeEdit",
+      "body": "Generate a colorful gradient per pixel, then snap to the nearest\nDawnBringer 16 palette entry by squared RGB distance.\n",
+      "target": {
+        "path": "StarterGui.QuantizeGui.Canvas.Quantize",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\n\nlocal W, H = 256, 256\nlocal PALETTE = {\n  { 20, 12, 28 }, { 68, 36, 52 }, { 48, 52, 109 }, { 78, 74, 78 },\n  { 133, 76, 48 }, { 52, 101, 36 }, { 208, 70, 72 }, { 117, 113, 97 },\n  { 89, 125, 206 }, { 210, 125, 44 }, { 133, 149, 161 }, { 109, 170, 44 },\n  { 210, 170, 153 }, { 109, 194, 202 }, { 218, 212, 94 }, { 222, 238, 214 },\n}\n\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nlocal buf = buffer.create(W * H * 4)\n\nlocal function nearest(r, g, b)\n  local best, bestD = PALETTE[1], math.huge\n  for _, c in PALETTE do\n    local dr, dg, db = r - c[1], g - c[2], b - c[3]\n    local d = dr * dr + dg * dg + db * db\n    if d < bestD then bestD, best = d, c end\n  end\n  return best\nend\n\nlocal k = 0\nfor y = 0, H - 1 do\n  for x = 0, W - 1 do\n    local fx, fy = x / W, y / H\n    local r = math.floor((math.sin(fx * 6) * 0.5 + 0.5) * 255)\n    local g = math.floor((math.sin(fy * 6 + 2) * 0.5 + 0.5) * 255)\n    local b = math.floor((math.sin((fx + fy) * 4 + 4) * 0.5 + 0.5) * 255)\n    local c = nearest(r, g, b)\n    buffer.writeu8(buf, k, c[1])\n    buffer.writeu8(buf, k + 1, c[2])\n    buffer.writeu8(buf, k + 2, c[3])\n    buffer.writeu8(buf, k + 3, 255)\n    k += 4\n  end\nend\n\nimg:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nlabel.ImageContent = Content.fromObject(img)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.QuantizeGui.Canvas.Quantize"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). The smooth sine gradient is now painted in\n16 chunky color bands. Try shrinking the palette to 4 or 8 entries\nand re-run.\n"
+    }
+  ]
+}

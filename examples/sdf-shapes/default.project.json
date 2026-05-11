@@ -1,0 +1,9 @@
+{
+  "name": "sdf-shapes",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

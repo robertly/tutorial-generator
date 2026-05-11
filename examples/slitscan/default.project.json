@@ -1,0 +1,9 @@
+{
+  "name": "slitscan",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

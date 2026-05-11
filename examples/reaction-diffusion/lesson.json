@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "reaction-diffusion",
+  "title": "Reaction-diffusion",
+  "goal": "Simulate Gray-Scott on a pixel grid and render it live.",
+  "tags": [
+    "editableimage",
+    "simulation",
+    "advanced"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Gray-Scott models two chemicals reacting on a grid: B eats A,\nboth diffuse. The feed/kill rates determine whether you get spots,\nstripes, coral-like patterns, or chaotic mazes. Start with the\nclassic `feed = 0.055, kill = 0.062`.\n"
+    },
+    {
+      "id": "s2-gui",
+      "type": "scripted",
+      "body": "ScreenGui host.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "RDGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.RDGui"
+      }
+    },
+    {
+      "id": "s3-canvas",
+      "type": "scripted",
+      "body": "Canvas \u2014 pixelated sampling to see fine details.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.RDGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            512,
+            0,
+            512
+          ],
+          "Position": [
+            0.5,
+            -256,
+            0.5,
+            -256
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0,
+          "ResampleMode": "Enum.ResamplerMode.Pixelated"
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.RDGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-sim",
+      "type": "codeEdit",
+      "body": "Add the simulation. Two A/B fields, with two scratch buffers for\nthe next step (ping-pong). Each step applies Laplacian diffusion\nplus the A\u00b7B\u00b2 reaction term. We run 8 steps per displayed frame so\npatterns evolve visibly.\n",
+      "explain": "Why 8 steps per frame? Gray-Scott evolves slowly per step \u2014 one\nstep per frame looks frozen. Batching updates amortizes the draw\ncost and lets patterns grow visibly. Tune down if perf suffers.\n",
+      "target": {
+        "path": "StarterGui.RDGui.Canvas.Simulate",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal W, H = 128, 128\nlocal DA, DB = 1.0, 0.5\nlocal FEED, KILL = 0.055, 0.062\nlocal STEPS_PER_FRAME = 8\n\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nlocal buf = buffer.create(W * H * 4)\n\nlocal a = table.create(W * H, 1)\nlocal b = table.create(W * H, 0)\nlocal a2 = table.create(W * H, 1)\nlocal b2 = table.create(W * H, 0)\n\nfor y = H // 2 - 8, H // 2 + 8 do\n  for x = W // 2 - 8, W // 2 + 8 do\n    b[y * W + x + 1] = 1\n  end\nend\n\nlocal function step()\n  for y = 1, H - 2 do\n    for x = 1, W - 2 do\n      local i = y * W + x + 1\n      local av, bv = a[i], b[i]\n      local lapA = a[i - 1] + a[i + 1] + a[i - W] + a[i + W] - 4 * av\n      local lapB = b[i - 1] + b[i + 1] + b[i - W] + b[i + W] - 4 * bv\n      local abb = av * bv * bv\n      a2[i] = av + (DA * lapA - abb + FEED * (1 - av))\n      b2[i] = bv + (DB * lapB + abb - (KILL + FEED) * bv)\n    end\n  end\n  a, a2 = a2, a\n  b, b2 = b2, b\nend\n\nRunService.Heartbeat:Connect(function()\n  for _ = 1, STEPS_PER_FRAME do step() end\n  local k = 0\n  for i = 1, W * H do\n    local v = math.clamp((a[i] - b[i]) * 255, 0, 255)\n    local vi = math.floor(v)\n    buffer.writeu8(buf, k, vi)\n    buffer.writeu8(buf, k + 1, math.floor(v * 0.6))\n    buffer.writeu8(buf, k + 2, math.floor(255 - v * 0.8))\n    buffer.writeu8(buf, k + 3, 255)\n    k += 4\n  end\n  img:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nend)\n\nlabel.ImageContent = Content.fromObject(img)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.RDGui.Canvas.Simulate"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). The center square of B spreads, splits, and\nforms mitosis-like cells. After 30 seconds the whole canvas is\nevolving. Try `FEED=0.0367, KILL=0.0649` for \"mitosis\" patterns or\n`FEED=0.03, KILL=0.062` for solitons.\n"
+    }
+  ]
+}

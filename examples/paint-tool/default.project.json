@@ -1,0 +1,9 @@
+{
+  "name": "paint-tool",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

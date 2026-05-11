@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "mandelbrot",
+  "title": "Mandelbrot viewer",
+  "goal": "Render a fractal into an EditableImage and zoom on click.",
+  "tags": [
+    "editableimage",
+    "graphics",
+    "interactive"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "`EditableImage` lets us write raw pixel data at runtime. We'll\nrender the Mandelbrot set into one and let the user click to zoom\nby 2\u00d7. A good way to feel how fast `WritePixelsBuffer` really is.\n"
+    },
+    {
+      "id": "s2-create-gui",
+      "type": "scripted",
+      "body": "Create a ScreenGui in StarterGui to host the canvas.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "MandelbrotGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.MandelbrotGui"
+      }
+    },
+    {
+      "id": "s3-create-canvas",
+      "type": "scripted",
+      "body": "Add a centered 512\u00d7512 ImageLabel as our pixel canvas.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.MandelbrotGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            512,
+            0,
+            512
+          ],
+          "Position": [
+            0.5,
+            -256,
+            0.5,
+            -256
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.MandelbrotGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-render-script",
+      "type": "codeEdit",
+      "body": "Add the LocalScript that creates an EditableImage, iterates the\nMandelbrot escape-time formula per pixel into a `buffer`, and binds\nthe image to the canvas. Clicking zooms in at the cursor.\n",
+      "explain": "Pixels are packed as RGBA bytes \u2014 four bytes per pixel, row-major.\n`WritePixelsBuffer` takes the whole buffer at once, which is much\ncheaper than thousands of `DrawPixel` calls. The palette formula is\na smooth cubic map from iteration count to color.\n",
+      "target": {
+        "path": "StarterGui.MandelbrotGui.Canvas.Render",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\n\nlocal WIDTH, HEIGHT = 256, 256\nlocal MAX_ITER = 64\n\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(WIDTH, HEIGHT) })\nlocal buf = buffer.create(WIDTH * HEIGHT * 4)\n\nlocal cx, cy, zoom = -0.5, 0, 1.5\n\nlocal function render()\n  local i = 0\n  for y = 0, HEIGHT - 1 do\n    local im0 = cy + (y / HEIGHT - 0.5) * 2 * zoom\n    for x = 0, WIDTH - 1 do\n      local re0 = cx + (x / WIDTH - 0.5) * 2 * zoom\n      local re, imv, n = 0, 0, 0\n      while re * re + imv * imv < 4 and n < MAX_ITER do\n        re, imv = re * re - imv * imv + re0, 2 * re * imv + im0\n        n += 1\n      end\n      local t = n / MAX_ITER\n      buffer.writeu8(buf, i,     math.floor(9 * (1 - t) * t * t * t * 255))\n      buffer.writeu8(buf, i + 1, math.floor(15 * (1 - t) * (1 - t) * t * t * 255))\n      buffer.writeu8(buf, i + 2, math.floor(8.5 * (1 - t) * (1 - t) * (1 - t) * t * 255))\n      buffer.writeu8(buf, i + 3, 255)\n      i += 4\n    end\n  end\n  img:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nend\n\nrender()\nlabel.ImageContent = Content.fromObject(img)\n\nlabel.InputBegan:Connect(function(input)\n  if input.UserInputType == Enum.UserInputType.MouseButton1 then\n    local ap = label.AbsolutePosition\n    local as = label.AbsoluteSize\n    local fx = (input.Position.X - ap.X) / as.X - 0.5\n    local fy = (input.Position.Y - ap.Y) / as.Y - 0.5\n    cx += fx * 2 * zoom\n    cy += fy * 2 * zoom\n    zoom *= 0.5\n    render()\n  end\nend)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.MandelbrotGui.Canvas.Render"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). The fractal renders immediately. Click inside\nthe image \u2014 the view re-centers and zooms 2\u00d7 deeper. Keep clicking\nto explore. After ~15 clicks it starts to pixelate (need higher\niteration count). Shift+F5 to stop.\n"
+    }
+  ]
+}

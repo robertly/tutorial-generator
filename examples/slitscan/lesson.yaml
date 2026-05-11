@@ -1,0 +1,98 @@
+schemaVersion: 1
+id: slitscan
+title: Slit-scan
+goal: Offset each row in time to produce a time-smeared image.
+tags:
+  - editableimage
+  - graphics
+  - animation
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      Slit-scan photography exposes one column of film at a time while
+      the subject moves past. The result is "time smeared along the
+      vertical axis." We fake it by sampling our procedural scene at a
+      different time per row.
+
+  - id: s2-gui
+    type: scripted
+    body: "ScreenGui host."
+    action:
+      op: createInstance
+      class: ScreenGui
+      parent: StarterGui
+      props:
+        Name: SlitGui
+        ResetOnSpawn: false
+    focus:
+      selection: StarterGui.SlitGui
+
+  - id: s3-canvas
+    type: scripted
+    body: "Canvas."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: StarterGui.SlitGui
+      props:
+        Name: Canvas
+        Size: [0, 512, 0, 512]
+        Position: [0.5, -256, 0.5, -256]
+        BackgroundColor3: [0, 0, 0]
+        BorderSizePixel: 0
+    focus:
+      selection: StarterGui.SlitGui.Canvas
+
+  - id: s4-slit
+    type: codeEdit
+    body: |
+      Each row's time is `t + y * 0.02` — the bottom of the image is
+      offset roughly 5 seconds behind the top. The "scene" is a simple
+      sin-wave color band; any procedural signal will show the slit-scan
+      smear.
+    target:
+      path: StarterGui.SlitGui.Canvas.Slitscan
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+      local RunService = game:GetService("RunService")
+
+      local W, H = 256, 256
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
+      local buf = buffer.create(W * H * 4)
+
+      local t = 0
+      RunService.Heartbeat:Connect(function(dt)
+        t += dt
+        local k = 0
+        for y = 0, H - 1 do
+          local rowT = t + y * 0.02
+          for x = 0, W - 1 do
+            local fx = x / W
+            local r = math.sin(fx * 10 + rowT * 2) * 0.5 + 0.5
+            local g = math.sin(fx * 10 + rowT * 2 + 2) * 0.5 + 0.5
+            local b = math.sin(fx * 10 + rowT * 2 + 4) * 0.5 + 0.5
+            buffer.writeu8(buf, k, math.floor(r * 255))
+            buffer.writeu8(buf, k + 1, math.floor(g * 255))
+            buffer.writeu8(buf, k + 2, math.floor(b * 255))
+            buffer.writeu8(buf, k + 3, 255)
+            k += 4
+          end
+        end
+        img:WritePixelsBuffer(Vector2.zero, img.Size, buf)
+      end)
+
+      label.ImageContent = Content.fromObject(img)
+    focus:
+      script:
+        path: StarterGui.SlitGui.Canvas.Slitscan
+
+  - id: s5-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). Diagonal bands flow across the canvas —
+      what was happening at the top a moment ago is now visible lower
+      down. Shift+F5 to stop.

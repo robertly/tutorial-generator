@@ -1,0 +1,112 @@
+schemaVersion: 1
+id: voronoi-texture
+title: Voronoi texture
+goal: Render a nearest-seed Voronoi pattern into an EditableImage.
+tags:
+  - editableimage
+  - graphics
+  - procedural
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      A Voronoi diagram partitions a plane into regions, each owned by
+      its nearest seed point. It's surprisingly useful: stained glass,
+      cracked-rock textures, cell patterns, territory maps.
+
+  - id: s2-gui
+    type: scripted
+    body: "ScreenGui host."
+    action:
+      op: createInstance
+      class: ScreenGui
+      parent: StarterGui
+      props:
+        Name: VoronoiGui
+        ResetOnSpawn: false
+    focus:
+      selection: StarterGui.VoronoiGui
+
+  - id: s3-canvas
+    type: scripted
+    body: "Canvas."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: StarterGui.VoronoiGui
+      props:
+        Name: Canvas
+        Size: [0, 512, 0, 512]
+        Position: [0.5, -256, 0.5, -256]
+        BackgroundColor3: [0, 0, 0]
+        BorderSizePixel: 0
+    focus:
+      selection: StarterGui.VoronoiGui.Canvas
+
+  - id: s4-voronoi
+    type: codeEdit
+    body: |
+      Pick 40 random seeds with random colors, then for each pixel find
+      the nearest seed and write that color (darkened by distance).
+    explain: |
+      This brute-force approach is O(pixels × seeds). For 256² × 40
+      seeds that's 2.6M checks — fine for a one-shot generation, too slow
+      for per-frame animation. Speed up with a Fortune sweep or a
+      jump-flooding algorithm.
+    target:
+      path: StarterGui.VoronoiGui.Canvas.Voronoi
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+
+      local W, H = 256, 256
+      local NUM_SEEDS = 40
+
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
+      local buf = buffer.create(W * H * 4)
+
+      local seeds = {}
+      for i = 1, NUM_SEEDS do
+        seeds[i] = {
+          x = math.random() * W,
+          y = math.random() * H,
+          r = math.random(30, 230),
+          g = math.random(30, 230),
+          b = math.random(30, 230),
+        }
+      end
+
+      local k = 0
+      for y = 0, H - 1 do
+        for x = 0, W - 1 do
+          local best, bestDist = seeds[1], math.huge
+          for _, s in seeds do
+            local dx, dy = x - s.x, y - s.y
+            local d = dx * dx + dy * dy
+            if d < bestDist then
+              bestDist = d
+              best = s
+            end
+          end
+          local edge = math.clamp(math.sqrt(bestDist) / 15, 0.5, 1)
+          buffer.writeu8(buf, k, math.floor(best.r * edge))
+          buffer.writeu8(buf, k + 1, math.floor(best.g * edge))
+          buffer.writeu8(buf, k + 2, math.floor(best.b * edge))
+          buffer.writeu8(buf, k + 3, 255)
+          k += 4
+        end
+      end
+
+      img:WritePixelsBuffer(Vector2.zero, img.Size, buf)
+      label.ImageContent = Content.fromObject(img)
+    focus:
+      script:
+        path: StarterGui.VoronoiGui.Canvas.Voronoi
+
+  - id: s5-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). A colorful cell pattern appears, different
+      every run. Shift+F5 and re-run for a new one.

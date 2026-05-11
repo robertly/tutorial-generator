@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "game-of-life",
+  "title": "Game of Life",
+  "goal": "Step Conway's Life on a pixel grid each Heartbeat.",
+  "tags": [
+    "editableimage",
+    "simulation",
+    "beginner"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Conway's Game of Life is a grid of cells that live or die based on\nhow many neighbors they have. With `EditableImage`, each cell is\none pixel \u2014 so a 128\u00d7128 grid renders as a 128\u00d7128 image updated\nevery step.\n"
+    },
+    {
+      "id": "s2-create-gui",
+      "type": "scripted",
+      "body": "Host ScreenGui.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "LifeGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.LifeGui"
+      }
+    },
+    {
+      "id": "s3-canvas",
+      "type": "scripted",
+      "body": "Add a pixelated-rendered ImageLabel for the grid.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.LifeGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            512,
+            0,
+            512
+          ],
+          "Position": [
+            0.5,
+            -256,
+            0.5,
+            -256
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0,
+          "ResampleMode": "Enum.ResamplerMode.Pixelated"
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.LifeGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-sim",
+      "type": "codeEdit",
+      "body": "Add the simulation script. Two flat tables (`cells`, `next_cells`)\nhold the grid; we count neighbors with wrapping edges and apply\nConway's rules. The result is drawn each step.\n",
+      "explain": "Keeping two buffers and swapping them avoids allocating a new table\nevery tick. Wrapping with `%` makes the world a torus \u2014 no edge\nartifacts. Drawing the whole buffer at once is far cheaper than\nthousands of DrawPixel calls.\n",
+      "target": {
+        "path": "StarterGui.LifeGui.Canvas.Simulate",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal W, H = 128, 128\nlocal STEPS_PER_SEC = 15\n\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\n\nlocal cells, next_cells = table.create(W * H, 0), table.create(W * H, 0)\nfor i = 1, W * H do\n  cells[i] = math.random() < 0.3 and 1 or 0\nend\n\nlocal buf = buffer.create(W * H * 4)\n\nlocal function draw()\n  local i = 0\n  for idx = 1, W * H do\n    local v = cells[idx] == 1 and 255 or 0\n    buffer.writeu8(buf, i, v)\n    buffer.writeu8(buf, i + 1, v)\n    buffer.writeu8(buf, i + 2, v)\n    buffer.writeu8(buf, i + 3, 255)\n    i += 4\n  end\n  img:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nend\n\nlocal function step()\n  for y = 0, H - 1 do\n    for x = 0, W - 1 do\n      local n = 0\n      for dy = -1, 1 do\n        for dx = -1, 1 do\n          if dx ~= 0 or dy ~= 0 then\n            local nx = (x + dx) % W\n            local ny = (y + dy) % H\n            n += cells[ny * W + nx + 1]\n          end\n        end\n      end\n      local i = y * W + x + 1\n      local alive = cells[i] == 1\n      next_cells[i] = ((alive and (n == 2 or n == 3)) or (not alive and n == 3)) and 1 or 0\n    end\n  end\n  cells, next_cells = next_cells, cells\nend\n\ndraw()\nlabel.ImageContent = Content.fromObject(img)\n\nlocal acc = 0\nRunService.Heartbeat:Connect(function(dt)\n  acc += dt\n  if acc >= 1 / STEPS_PER_SEC then\n    acc = 0\n    step()\n    draw()\n  end\nend)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.LifeGui.Canvas.Simulate"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). Random noise gives way to gliders,\noscillators, and still lifes. Eventually the world stabilizes \u2014\nstop with Shift+F5 and re-run for a fresh seed.\n"
+    }
+  ]
+}

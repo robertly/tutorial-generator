@@ -1,0 +1,9 @@
+{
+  "name": "flow-field-particles",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

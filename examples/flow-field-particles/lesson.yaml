@@ -1,0 +1,119 @@
+schemaVersion: 1
+id: flow-field-particles
+title: Flow field particles
+goal: Advect 500 particles through a procedural vector field with fading trails.
+tags:
+  - editableimage
+  - graphics
+  - animation
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      Flow fields are vector fields — one direction per pixel. Drop
+      particles into them and they trace smooth, organic paths.
+      Skip-clearing the canvas (just darken it) and each particle leaves
+      a fading trail.
+
+  - id: s2-gui
+    type: scripted
+    body: "ScreenGui host."
+    action:
+      op: createInstance
+      class: ScreenGui
+      parent: StarterGui
+      props:
+        Name: FlowGui
+        ResetOnSpawn: false
+    focus:
+      selection: StarterGui.FlowGui
+
+  - id: s3-canvas
+    type: scripted
+    body: "Canvas."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: StarterGui.FlowGui
+      props:
+        Name: Canvas
+        Size: [0, 512, 0, 512]
+        Position: [0.5, -256, 0.5, -256]
+        BackgroundColor3: [0, 0, 0]
+        BorderSizePixel: 0
+    focus:
+      selection: StarterGui.FlowGui.Canvas
+
+  - id: s4-flow
+    type: codeEdit
+    body: |
+      The vector field is just `sin(x) + cos(y) + t` — gives swirly
+      motion. Each frame we read the pixel buffer, darken it, write it
+      back, then draw each particle at its new position.
+    explain: |
+      The fade is done by reading the whole canvas, subtracting a small
+      constant from each channel, and writing it back — much cheaper
+      than `DrawRectangle` with alpha on a 256×256 image. The trail
+      length is controlled by `FADE`: smaller = longer trails.
+    target:
+      path: StarterGui.FlowGui.Canvas.Flow
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+      local RunService = game:GetService("RunService")
+
+      local W, H = 256, 256
+      local NUM_PARTICLES = 500
+      local FADE = 8
+
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
+      local buf = buffer.create(W * H * 4)
+
+      img:DrawRectangle(Vector2.zero, img.Size, Color3.new(0, 0, 0), 0, Enum.ImageCombineType.Overwrite)
+
+      local particles = {}
+      for i = 1, NUM_PARTICLES do
+        particles[i] = { x = math.random() * W, y = math.random() * H, hue = math.random() }
+      end
+
+      local t = 0
+      RunService.Heartbeat:Connect(function(dt)
+        t += dt
+        local size = img.Size
+        img:ReadPixelsBuffer(Vector2.zero, size, buf)
+        for k = 0, W * H * 4 - 1, 4 do
+          buffer.writeu8(buf, k, math.max(0, buffer.readu8(buf, k) - FADE))
+          buffer.writeu8(buf, k + 1, math.max(0, buffer.readu8(buf, k + 1) - FADE))
+          buffer.writeu8(buf, k + 2, math.max(0, buffer.readu8(buf, k + 2) - FADE))
+        end
+        img:WritePixelsBuffer(Vector2.zero, size, buf)
+
+        for _, p in particles do
+          local angle = (math.sin(p.x * 0.02 + t * 0.3) + math.cos(p.y * 0.02)) * math.pi
+          p.x += math.cos(angle) * 2
+          p.y += math.sin(angle) * 2
+          if p.x < 0 or p.x >= W or p.y < 0 or p.y >= H then
+            p.x = math.random() * W
+            p.y = math.random() * H
+          end
+          img:DrawCircle(
+            Vector2.new(p.x, p.y), 1,
+            Color3.fromHSV(p.hue, 0.8, 1),
+            0, Enum.ImageCombineType.AlphaBlend
+          )
+        end
+      end)
+
+      label.ImageContent = Content.fromObject(img)
+    focus:
+      script:
+        path: StarterGui.FlowGui.Canvas.Flow
+
+  - id: s5-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). 500 colored particles swirl across the
+      canvas, leaving fading trails that reveal the flow field's
+      structure.

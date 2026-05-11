@@ -1,0 +1,102 @@
+schemaVersion: 1
+id: posterize-filter
+title: Posterize filter
+goal: Animate a radial ripple then quantize channels to 4 levels.
+tags:
+  - editableimage
+  - graphics
+  - filters
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      Posterizing snaps each color channel to the nearest step in an
+      N-level ramp. With N=4 you get 64 possible colors total — the
+      classic silkscreen / retro-print look. We apply it each frame to
+      an animated radial ripple.
+
+  - id: s2-gui
+    type: scripted
+    body: "ScreenGui host."
+    action:
+      op: createInstance
+      class: ScreenGui
+      parent: StarterGui
+      props:
+        Name: PosterizeGui
+        ResetOnSpawn: false
+    focus:
+      selection: StarterGui.PosterizeGui
+
+  - id: s3-canvas
+    type: scripted
+    body: "Canvas."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: StarterGui.PosterizeGui
+      props:
+        Name: Canvas
+        Size: [0, 512, 0, 512]
+        Position: [0.5, -256, 0.5, -256]
+        BackgroundColor3: [0, 0, 0]
+        BorderSizePixel: 0
+    focus:
+      selection: StarterGui.PosterizeGui.Canvas
+
+  - id: s4-filter
+    type: codeEdit
+    body: |
+      Each pixel gets three channel-offset sines of the radial distance.
+      `posterize(v)` rounds to the nearest of `LEVELS` steps, producing
+      flat color bands.
+    target:
+      path: StarterGui.PosterizeGui.Canvas.Posterize
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+      local RunService = game:GetService("RunService")
+
+      local W, H = 256, 256
+      local LEVELS = 4
+
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
+      local buf = buffer.create(W * H * 4)
+
+      local function posterize(v)
+        return math.floor(v / 255 * (LEVELS - 1) + 0.5) / (LEVELS - 1) * 255
+      end
+
+      local t = 0
+      RunService.Heartbeat:Connect(function(dt)
+        t += dt
+        local k = 0
+        for y = 0, H - 1 do
+          for x = 0, W - 1 do
+            local fx, fy = x / W - 0.5, y / H - 0.5
+            local d = math.sqrt(fx * fx + fy * fy)
+            local r = (math.sin(d * 20 - t * 2) * 0.5 + 0.5) * 255
+            local g = (math.sin(d * 20 - t * 2 + 2) * 0.5 + 0.5) * 255
+            local b = (math.sin(d * 20 - t * 2 + 4) * 0.5 + 0.5) * 255
+            buffer.writeu8(buf, k, math.floor(posterize(r)))
+            buffer.writeu8(buf, k + 1, math.floor(posterize(g)))
+            buffer.writeu8(buf, k + 2, math.floor(posterize(b)))
+            buffer.writeu8(buf, k + 3, 255)
+            k += 4
+          end
+        end
+        img:WritePixelsBuffer(Vector2.zero, img.Size, buf)
+      end)
+
+      label.ImageContent = Content.fromObject(img)
+    focus:
+      script:
+        path: StarterGui.PosterizeGui.Canvas.Posterize
+
+  - id: s5-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). Concentric animated bands in chunky flat
+      colors. Bump `LEVELS` to 2 for two-tone, 16 for smooth.

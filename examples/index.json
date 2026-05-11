@@ -408,6 +408,206 @@
         "Visual",
         "ported"
       ]
+    },
+    {
+      "id": "mandelbrot",
+      "title": "Mandelbrot viewer",
+      "path": "mandelbrot/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "interactive"
+      ]
+    },
+    {
+      "id": "game-of-life",
+      "title": "Game of Life",
+      "path": "game-of-life/lesson.json",
+      "tags": [
+        "editableimage",
+        "simulation",
+        "beginner"
+      ]
+    },
+    {
+      "id": "ripple-effect",
+      "title": "Ripple effect",
+      "path": "ripple-effect/lesson.json",
+      "tags": [
+        "editableimage",
+        "simulation",
+        "interactive"
+      ]
+    },
+    {
+      "id": "plasma-effect",
+      "title": "Plasma effect",
+      "path": "plasma-effect/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "animation"
+      ]
+    },
+    {
+      "id": "audio-visualizer",
+      "title": "Audio visualizer",
+      "path": "audio-visualizer/lesson.json",
+      "tags": [
+        "editableimage",
+        "audio",
+        "animation"
+      ]
+    },
+    {
+      "id": "paint-tool",
+      "title": "Paint tool",
+      "path": "paint-tool/lesson.json",
+      "tags": [
+        "editableimage",
+        "interactive",
+        "tools"
+      ]
+    },
+    {
+      "id": "minimap-fog",
+      "title": "Minimap fog of war",
+      "path": "minimap-fog/lesson.json",
+      "tags": [
+        "editableimage",
+        "gameplay",
+        "minimap"
+      ]
+    },
+    {
+      "id": "thermal-vision",
+      "title": "Thermal vision",
+      "path": "thermal-vision/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "animation"
+      ]
+    },
+    {
+      "id": "procedural-brick",
+      "title": "Procedural brick texture",
+      "path": "procedural-brick/lesson.json",
+      "tags": [
+        "editableimage",
+        "surfaceappearance",
+        "textures"
+      ]
+    },
+    {
+      "id": "voronoi-texture",
+      "title": "Voronoi texture",
+      "path": "voronoi-texture/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "procedural"
+      ]
+    },
+    {
+      "id": "dithering-filter",
+      "title": "Dithering filter",
+      "path": "dithering-filter/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "filters"
+      ]
+    },
+    {
+      "id": "palette-quantize",
+      "title": "Palette quantize",
+      "path": "palette-quantize/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "filters"
+      ]
+    },
+    {
+      "id": "reaction-diffusion",
+      "title": "Reaction-diffusion",
+      "path": "reaction-diffusion/lesson.json",
+      "tags": [
+        "editableimage",
+        "simulation",
+        "advanced"
+      ]
+    },
+    {
+      "id": "starfield",
+      "title": "Starfield",
+      "path": "starfield/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "animation"
+      ]
+    },
+    {
+      "id": "slitscan",
+      "title": "Slit-scan",
+      "path": "slitscan/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "animation"
+      ]
+    },
+    {
+      "id": "flow-field-particles",
+      "title": "Flow field particles",
+      "path": "flow-field-particles/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "animation"
+      ]
+    },
+    {
+      "id": "heightmap-viewer",
+      "title": "Heightmap viewer",
+      "path": "heightmap-viewer/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "procedural"
+      ]
+    },
+    {
+      "id": "surface-canvas",
+      "title": "Surface canvas",
+      "path": "surface-canvas/lesson.json",
+      "tags": [
+        "editableimage",
+        "surfacegui",
+        "interactive"
+      ]
+    },
+    {
+      "id": "posterize-filter",
+      "title": "Posterize filter",
+      "path": "posterize-filter/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "filters"
+      ]
+    },
+    {
+      "id": "sdf-shapes",
+      "title": "SDF shapes",
+      "path": "sdf-shapes/lesson.json",
+      "tags": [
+        "editableimage",
+        "graphics",
+        "animation"
+      ]
     }
   ]
 }

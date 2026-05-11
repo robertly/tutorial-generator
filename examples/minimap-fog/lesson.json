@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "id": "minimap-fog",
+  "title": "Minimap fog of war",
+  "goal": "Reveal a fog-of-war minimap as the player walks.",
+  "tags": [
+    "editableimage",
+    "gameplay",
+    "minimap"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Classic fog of war: start fully black, reveal a circle wherever the\nplayer goes. We use an `EditableImage` as an alpha mask and call\n`DrawCircle` with full transparency + Overwrite to punch a hole\nthrough the fog.\n"
+    },
+    {
+      "id": "s2-gui",
+      "type": "scripted",
+      "body": "ScreenGui host.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "MinimapGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.MinimapGui"
+      }
+    },
+    {
+      "id": "s3-frame",
+      "type": "scripted",
+      "body": "Corner map frame \u2014 placeholder green map background.",
+      "action": {
+        "op": "createInstance",
+        "class": "Frame",
+        "parent": "StarterGui.MinimapGui",
+        "props": {
+          "Name": "Frame",
+          "Size": [
+            0,
+            256,
+            0,
+            256
+          ],
+          "Position": [
+            1,
+            -272,
+            0,
+            16
+          ],
+          "BackgroundColor3": [
+            0.2,
+            0.5,
+            0.2
+          ],
+          "BorderSizePixel": 2
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.MinimapGui.Frame"
+      }
+    },
+    {
+      "id": "s4-fog",
+      "type": "scripted",
+      "body": "Fog ImageLabel on top of the map frame.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.MinimapGui.Frame",
+        "props": {
+          "Name": "Fog",
+          "Size": [
+            1,
+            0,
+            1,
+            0
+          ],
+          "BackgroundTransparency": 1,
+          "BorderSizePixel": 0
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.MinimapGui.Frame.Fog"
+      }
+    },
+    {
+      "id": "s5-reveal",
+      "type": "codeEdit",
+      "body": "Add the Reveal LocalScript. It fills the fog black on startup,\nthen each Heartbeat maps the player's world position to pixel\ncoordinates and erases a small circle there.\n",
+      "target": {
+        "path": "StarterGui.MinimapGui.Frame.Fog.Reveal",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\nlocal RunService = game:GetService(\"RunService\")\nlocal Players = game:GetService(\"Players\")\n\nlocal W, H = 256, 256\nlocal WORLD_RADIUS = 200\nlocal REVEAL_RADIUS = 10\n\nlocal fogLabel = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nimg:DrawRectangle(Vector2.zero, img.Size, Color3.new(0, 0, 0), 0, Enum.ImageCombineType.Overwrite)\nfogLabel.ImageContent = Content.fromObject(img)\n\nlocal player = Players.LocalPlayer\n\nRunService.Heartbeat:Connect(function()\n  local char = player.Character\n  local hrp = char and char:FindFirstChild(\"HumanoidRootPart\")\n  if not hrp then return end\n  local x = (hrp.Position.X / WORLD_RADIUS + 1) * 0.5 * W\n  local y = (hrp.Position.Z / WORLD_RADIUS + 1) * 0.5 * H\n  img:DrawCircle(Vector2.new(x, y), REVEAL_RADIUS, Color3.new(0, 0, 0), 1, Enum.ImageCombineType.Overwrite)\nend)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.MinimapGui.Frame.Fog.Reveal"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). Top-right corner shows a black minimap;\nwalk your character around the world and fog clears along your\npath. Assumes the playable area spans roughly \u00b1200 studs around\nthe origin \u2014 tune `WORLD_RADIUS` for your map.\n"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "heightmap-viewer",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

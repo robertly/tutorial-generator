@@ -1,0 +1,99 @@
+schemaVersion: 1
+id: audio-visualizer
+title: Audio visualizer
+goal: Scroll a loudness history into an EditableImage as bars.
+tags:
+  - editableimage
+  - audio
+  - animation
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      `SoundService:GetOutputLoudness()` returns the current overall
+      output volume. Feed that into a scrolling history buffer and draw
+      each sample as a vertical bar — instant music visualizer.
+
+  - id: s2-gui
+    type: scripted
+    body: "ScreenGui host."
+    action:
+      op: createInstance
+      class: ScreenGui
+      parent: StarterGui
+      props:
+        Name: VisualizerGui
+        ResetOnSpawn: false
+    focus:
+      selection: StarterGui.VisualizerGui
+
+  - id: s3-canvas
+    type: scripted
+    body: "Wide, short canvas along the bottom."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: StarterGui.VisualizerGui
+      props:
+        Name: Canvas
+        Size: [0, 768, 0, 256]
+        Position: [0.5, -384, 1, -272]
+        BackgroundColor3: [0, 0, 0]
+        BorderSizePixel: 0
+    focus:
+      selection: StarterGui.VisualizerGui.Canvas
+
+  - id: s4-viz
+    type: codeEdit
+    body: |
+      Add the Visualize LocalScript. Each frame, shift the history
+      buffer left, sample loudness, and redraw all bars with
+      `DrawRectangle`.
+    target:
+      path: StarterGui.VisualizerGui.Canvas.Visualize
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+      local RunService = game:GetService("RunService")
+      local SoundService = game:GetService("SoundService")
+
+      local W, H = 256, 128
+      local BARS = 32
+      local BAR_W = W / BARS
+
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
+
+      local history = table.create(BARS, 0)
+
+      RunService.Heartbeat:Connect(function()
+        img:DrawRectangle(Vector2.zero, img.Size, Color3.new(0, 0, 0), 0, Enum.ImageCombineType.Overwrite)
+        local loud = SoundService:GetOutputLoudness()
+        table.remove(history, 1)
+        table.insert(history, loud)
+        for i = 1, BARS do
+          local v = math.clamp(history[i] / 40, 0, 1)
+          local barH = math.floor(v * H)
+          local hue = (i - 1) / BARS
+          img:DrawRectangle(
+            Vector2.new((i - 1) * BAR_W, H - barH),
+            Vector2.new(BAR_W - 1, barH),
+            Color3.fromHSV(hue, 0.8, 1),
+            0,
+            Enum.ImageCombineType.Overwrite
+          )
+        end
+      end)
+
+      label.ImageContent = Content.fromObject(img)
+    focus:
+      script:
+        path: StarterGui.VisualizerGui.Canvas.Visualize
+
+  - id: s5-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). Play any Sound (jump, a music asset, etc.)
+      or use the command bar: `SoundService:FindFirstChild("X"):Play()`.
+      Bars scroll left, heights track loudness.

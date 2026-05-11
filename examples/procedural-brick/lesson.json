@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "procedural-brick",
+  "title": "Procedural brick texture",
+  "goal": "Generate a brick texture at runtime and apply it to a Part.",
+  "tags": [
+    "editableimage",
+    "surfaceappearance",
+    "textures"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "`EditableImage` works as a texture source, not just a GUI image.\nBind one to `SurfaceAppearance.ColorMap` via `Content.fromObject`\nand you can generate textures at runtime. We'll draw a running-bond\nbrick pattern with `DrawRectangle`.\n"
+    },
+    {
+      "id": "s2-wall",
+      "type": "scripted",
+      "body": "A tall, flat wall Part to texture.",
+      "action": {
+        "op": "createInstance",
+        "class": "Part",
+        "parent": "Workspace",
+        "props": {
+          "Name": "BrickWall",
+          "Anchored": true,
+          "Size": [
+            16,
+            10,
+            1
+          ],
+          "Position": [
+            0,
+            5,
+            0
+          ],
+          "Material": "Enum.Material.SmoothPlastic"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.BrickWall"
+      }
+    },
+    {
+      "id": "s3-texture",
+      "type": "codeEdit",
+      "body": "Add the Texture server Script. It draws mortar-color background,\nthen rectangles per brick with a small per-brick shade variation,\nthen creates a SurfaceAppearance pointing at the image.\n",
+      "explain": "Even rows are offset by half a brick (running bond). The per-brick\n`math.random()` shade gives each brick a slightly different color.\n`SurfaceAppearance` overrides `Material`, so the color map takes\nover entirely.\n",
+      "target": {
+        "path": "Workspace.BrickWall.Texture",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\n\nlocal part = script.Parent\nlocal W, H = 256, 256\nlocal BRICK_W, BRICK_H = 64, 24\nlocal MORTAR = 3\n\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nimg:DrawRectangle(Vector2.zero, img.Size, Color3.fromRGB(40, 40, 40), 0, Enum.ImageCombineType.Overwrite)\n\nfor y = 0, H // BRICK_H do\n  local offset = (y % 2) * (BRICK_W / 2)\n  for x = -1, W // BRICK_W + 1 do\n    local px = x * BRICK_W + offset + MORTAR\n    local py = y * BRICK_H + MORTAR\n    local shade = 0.75 + math.random() * 0.2\n    local color = Color3.fromRGB(150 * shade, 60 * shade, 45 * shade)\n    img:DrawRectangle(\n      Vector2.new(px, py),\n      Vector2.new(BRICK_W - MORTAR * 2, BRICK_H - MORTAR * 2),\n      color, 0, Enum.ImageCombineType.Overwrite\n    )\n  end\nend\n\nlocal surface = Instance.new(\"SurfaceAppearance\")\nsurface.ColorMap = Content.fromObject(img)\nsurface.Parent = part\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.BrickWall.Texture"
+        }
+      }
+    },
+    {
+      "id": "s4-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). The wall gets a random brick texture. Every\nsession produces slightly different bricks because the shade is\nrandomized at generation time. Shift+F5 to stop.\n"
+    }
+  ]
+}

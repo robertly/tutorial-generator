@@ -1,0 +1,9 @@
+{
+  "name": "thermal-vision",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

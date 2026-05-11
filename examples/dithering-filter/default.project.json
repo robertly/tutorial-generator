@@ -1,0 +1,9 @@
+{
+  "name": "dithering-filter",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

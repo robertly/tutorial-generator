@@ -1,0 +1,9 @@
+{
+  "name": "minimap-fog",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

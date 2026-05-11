@@ -1,0 +1,9 @@
+{
+  "name": "plasma-effect",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

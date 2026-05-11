@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "voronoi-texture",
+  "title": "Voronoi texture",
+  "goal": "Render a nearest-seed Voronoi pattern into an EditableImage.",
+  "tags": [
+    "editableimage",
+    "graphics",
+    "procedural"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "A Voronoi diagram partitions a plane into regions, each owned by\nits nearest seed point. It's surprisingly useful: stained glass,\ncracked-rock textures, cell patterns, territory maps.\n"
+    },
+    {
+      "id": "s2-gui",
+      "type": "scripted",
+      "body": "ScreenGui host.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "VoronoiGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.VoronoiGui"
+      }
+    },
+    {
+      "id": "s3-canvas",
+      "type": "scripted",
+      "body": "Canvas.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.VoronoiGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            512,
+            0,
+            512
+          ],
+          "Position": [
+            0.5,
+            -256,
+            0.5,
+            -256
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.VoronoiGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-voronoi",
+      "type": "codeEdit",
+      "body": "Pick 40 random seeds with random colors, then for each pixel find\nthe nearest seed and write that color (darkened by distance).\n",
+      "explain": "This brute-force approach is O(pixels \u00d7 seeds). For 256\u00b2 \u00d7 40\nseeds that's 2.6M checks \u2014 fine for a one-shot generation, too slow\nfor per-frame animation. Speed up with a Fortune sweep or a\njump-flooding algorithm.\n",
+      "target": {
+        "path": "StarterGui.VoronoiGui.Canvas.Voronoi",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\n\nlocal W, H = 256, 256\nlocal NUM_SEEDS = 40\n\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nlocal buf = buffer.create(W * H * 4)\n\nlocal seeds = {}\nfor i = 1, NUM_SEEDS do\n  seeds[i] = {\n    x = math.random() * W,\n    y = math.random() * H,\n    r = math.random(30, 230),\n    g = math.random(30, 230),\n    b = math.random(30, 230),\n  }\nend\n\nlocal k = 0\nfor y = 0, H - 1 do\n  for x = 0, W - 1 do\n    local best, bestDist = seeds[1], math.huge\n    for _, s in seeds do\n      local dx, dy = x - s.x, y - s.y\n      local d = dx * dx + dy * dy\n      if d < bestDist then\n        bestDist = d\n        best = s\n      end\n    end\n    local edge = math.clamp(math.sqrt(bestDist) / 15, 0.5, 1)\n    buffer.writeu8(buf, k, math.floor(best.r * edge))\n    buffer.writeu8(buf, k + 1, math.floor(best.g * edge))\n    buffer.writeu8(buf, k + 2, math.floor(best.b * edge))\n    buffer.writeu8(buf, k + 3, 255)\n    k += 4\n  end\nend\n\nimg:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nlabel.ImageContent = Content.fromObject(img)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.VoronoiGui.Canvas.Voronoi"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). A colorful cell pattern appears, different\nevery run. Shift+F5 and re-run for a new one.\n"
+    }
+  ]
+}

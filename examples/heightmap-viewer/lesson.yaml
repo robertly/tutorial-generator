@@ -1,0 +1,109 @@
+schemaVersion: 1
+id: heightmap-viewer
+title: Heightmap viewer
+goal: Render an fBM heightmap as a biome-colored top-down map.
+tags:
+  - editableimage
+  - graphics
+  - procedural
+steps:
+  - id: s1-intro
+    type: narrative
+    body: |
+      Fractional Brownian motion (fBM) sums multiple octaves of noise to
+      create natural-looking terrain. Color each pixel by height band
+      (water, sand, grass, rock, snow) and you have a procedural map.
+
+  - id: s2-gui
+    type: scripted
+    body: "ScreenGui host."
+    action:
+      op: createInstance
+      class: ScreenGui
+      parent: StarterGui
+      props:
+        Name: HeightGui
+        ResetOnSpawn: false
+    focus:
+      selection: StarterGui.HeightGui
+
+  - id: s3-canvas
+    type: scripted
+    body: "Canvas."
+    action:
+      op: createInstance
+      class: ImageLabel
+      parent: StarterGui.HeightGui
+      props:
+        Name: Canvas
+        Size: [0, 512, 0, 512]
+        Position: [0.5, -256, 0.5, -256]
+        BackgroundColor3: [0, 0, 0]
+        BorderSizePixel: 0
+    focus:
+      selection: StarterGui.HeightGui.Canvas
+
+  - id: s4-height
+    type: codeEdit
+    body: |
+      fBM is 5 octaves of `math.noise` summed with halving amplitude and
+      doubling frequency. Colors are a simple threshold cascade. A tiny
+      height-difference shade to the up-left neighbor simulates lighting.
+    target:
+      path: StarterGui.HeightGui.Canvas.Height
+      create: true
+      class: LocalScript
+    source: |
+      local AssetService = game:GetService("AssetService")
+
+      local W, H = 256, 256
+      local label = script.Parent
+      local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
+      local buf = buffer.create(W * H * 4)
+
+      local function fbm(x, y)
+        local v, amp, freq = 0, 1, 0.02
+        for _ = 1, 5 do
+          v += math.noise(x * freq, y * freq) * amp
+          amp *= 0.5
+          freq *= 2
+        end
+        return v
+      end
+
+      local function colorFor(h)
+        if h < -0.1 then return 30, 60, 150
+        elseif h < 0.05 then return 70, 130, 200
+        elseif h < 0.15 then return 220, 200, 140
+        elseif h < 0.35 then return 80, 150, 70
+        elseif h < 0.55 then return 50, 100, 50
+        elseif h < 0.75 then return 120, 110, 100
+        else return 240, 240, 250 end
+      end
+
+      local k = 0
+      for y = 0, H - 1 do
+        for x = 0, W - 1 do
+          local h = fbm(x, y)
+          local r, g, b = colorFor(h)
+          local hn = fbm(x - 1, y - 1)
+          local shade = 0.85 + math.clamp((h - hn) * 4, -0.15, 0.15)
+          buffer.writeu8(buf, k,     math.clamp(math.floor(r * shade), 0, 255))
+          buffer.writeu8(buf, k + 1, math.clamp(math.floor(g * shade), 0, 255))
+          buffer.writeu8(buf, k + 2, math.clamp(math.floor(b * shade), 0, 255))
+          buffer.writeu8(buf, k + 3, 255)
+          k += 4
+        end
+      end
+
+      img:WritePixelsBuffer(Vector2.zero, img.Size, buf)
+      label.ImageContent = Content.fromObject(img)
+    focus:
+      script:
+        path: StarterGui.HeightGui.Canvas.Height
+
+  - id: s5-playtest
+    type: narrative
+    body: |
+      Press ▶ **Play** (F5). A procedural biome map appears with oceans,
+      beaches, forests, mountains, and snowcaps.

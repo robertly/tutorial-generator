@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "sdf-shapes",
+  "title": "SDF shapes",
+  "goal": "Render blended 2D signed-distance-field shapes with edge highlighting.",
+  "tags": [
+    "editableimage",
+    "graphics",
+    "animation"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "A signed distance field returns, for every point, the distance to\nthe nearest surface (negative inside). SDFs make metaball-style\nsmooth blending trivial \u2014 just take a smooth minimum of several\nSDFs. Inigo Quilez has the canonical list of primitives.\n"
+    },
+    {
+      "id": "s2-gui",
+      "type": "scripted",
+      "body": "ScreenGui host.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "SDFGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.SDFGui"
+      }
+    },
+    {
+      "id": "s3-canvas",
+      "type": "scripted",
+      "body": "Canvas.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.SDFGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            512,
+            0,
+            512
+          ],
+          "Position": [
+            0.5,
+            -256,
+            0.5,
+            -256
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.SDFGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-sdf",
+      "type": "codeEdit",
+      "body": "`sdCircle` and `sdBox` return signed distance from a point. `smin`\nis the polynomial smooth-minimum: blends two SDFs over a `k`-wide\nregion. Two circles + one box, all orbiting slowly, all fused.\n",
+      "explain": "The `|d| < 1.5` test gives us an edge band one-pixel wide at the\nsurface \u2014 cheap outline. `math.exp(d * 0.03)` softens the inside\nshading with distance from the edge. This runs per pixel every\nframe, so keep the canvas modest.\n",
+      "target": {
+        "path": "StarterGui.SDFGui.Canvas.SDF",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal W, H = 256, 256\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nlocal buf = buffer.create(W * H * 4)\n\nlocal function sdCircle(px, py, cx, cy, r)\n  return math.sqrt((px - cx) ^ 2 + (py - cy) ^ 2) - r\nend\n\nlocal function sdBox(px, py, cx, cy, bx, by)\n  local dx = math.max(math.abs(px - cx) - bx, 0)\n  local dy = math.max(math.abs(py - cy) - by, 0)\n  return math.sqrt(dx * dx + dy * dy)\nend\n\nlocal function smin(a, b, k)\n  local h = math.clamp(0.5 + 0.5 * (b - a) / k, 0, 1)\n  return b * (1 - h) + a * h - k * h * (1 - h)\nend\n\nlocal t = 0\nRunService.Heartbeat:Connect(function(dt)\n  t += dt\n  local k = 0\n  for y = 0, H - 1 do\n    for x = 0, W - 1 do\n      local c1 = sdCircle(x, y, 96 + math.sin(t) * 30, 128, 30)\n      local c2 = sdCircle(x, y, 160 + math.cos(t * 1.3) * 30, 128, 30)\n      local b1 = sdBox(x, y, 128, 80 + math.sin(t * 0.7) * 20, 40, 20)\n      local d = smin(smin(c1, c2, 20), b1, 20)\n      local inside = d < 0\n      local edge = math.abs(d) < 1.5\n      local col = inside and (0.4 + 0.6 * math.exp(d * 0.03)) or 0\n      local r = edge and 1 or col * 0.9\n      local g = edge and 0.4 or col * 0.5\n      local b = edge and 0.1 or col * 0.2\n      buffer.writeu8(buf, k, math.floor(math.clamp(r, 0, 1) * 255))\n      buffer.writeu8(buf, k + 1, math.floor(math.clamp(g, 0, 1) * 255))\n      buffer.writeu8(buf, k + 2, math.floor(math.clamp(b, 0, 1) * 255))\n      buffer.writeu8(buf, k + 3, 255)\n      k += 4\n    end\n  end\n  img:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nend)\n\nlabel.ImageContent = Content.fromObject(img)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.SDFGui.Canvas.SDF"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). Two orange circles and an orange box orbit\nand fuse like metaballs, with a glowing edge.\n"
+    }
+  ]
+}

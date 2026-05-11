@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "thermal-vision",
+  "title": "Thermal vision",
+  "goal": "Map a procedural scalar field through a jet palette.",
+  "tags": [
+    "editableimage",
+    "graphics",
+    "animation"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "A thermal camera visualizes temperature by mapping intensity\nthrough a palette (typically blue\u2192red). We'll build a procedural\nheat field with two moving sources and render it through a jet\npalette.\n"
+    },
+    {
+      "id": "s2-gui",
+      "type": "scripted",
+      "body": "ScreenGui host.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "ThermalGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.ThermalGui"
+      }
+    },
+    {
+      "id": "s3-canvas",
+      "type": "scripted",
+      "body": "Canvas ImageLabel.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.ThermalGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            512,
+            0,
+            512
+          ],
+          "Position": [
+            0.5,
+            -256,
+            0.5,
+            -256
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.ThermalGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-thermal",
+      "type": "codeEdit",
+      "body": "Each pixel's heat is summed inverse-distance to two orbiting\nsources. The heatmap function is a cheap jet-ish palette \u2014 three\ntent functions offset along a single parameter.\n",
+      "target": {
+        "path": "StarterGui.ThermalGui.Canvas.Thermal",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal W, H = 256, 256\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nlocal buf = buffer.create(W * H * 4)\n\nlocal function heatmap(t)\n  local r = math.clamp(1.5 - math.abs(t * 4 - 3), 0, 1)\n  local g = math.clamp(1.5 - math.abs(t * 4 - 2), 0, 1)\n  local b = math.clamp(1.5 - math.abs(t * 4 - 1), 0, 1)\n  return r, g, b\nend\n\nlocal time = 0\nRunService.Heartbeat:Connect(function(dt)\n  time += dt\n  local k = 0\n  for y = 0, H - 1 do\n    for x = 0, W - 1 do\n      local fx, fy = x / W - 0.5, y / H - 0.5\n      local d1 = math.sqrt((fx - math.sin(time) * 0.3) ^ 2 + (fy - math.cos(time) * 0.3) ^ 2)\n      local d2 = math.sqrt((fx + math.sin(time * 1.3) * 0.3) ^ 2 + (fy + math.cos(time * 0.9) * 0.3) ^ 2)\n      local heat = math.clamp(0.2 / (d1 + 0.05) + 0.15 / (d2 + 0.05), 0, 1)\n      local r, g, b = heatmap(heat)\n      buffer.writeu8(buf, k, math.floor(r * 255))\n      buffer.writeu8(buf, k + 1, math.floor(g * 255))\n      buffer.writeu8(buf, k + 2, math.floor(b * 255))\n      buffer.writeu8(buf, k + 3, 255)\n      k += 4\n    end\n  end\n  img:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nend)\n\nlabel.ImageContent = Content.fromObject(img)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.ThermalGui.Canvas.Thermal"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). Two hot spots orbit around each other\nthrough a blue/green/yellow/red palette. Shift+F5 to stop.\n"
+    }
+  ]
+}

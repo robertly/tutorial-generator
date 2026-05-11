@@ -1,0 +1,9 @@
+{
+  "name": "reaction-diffusion",
+  "tree": {
+    "$className": "DataModel",
+    "StarterGui": {
+      "$path": "src"
+    }
+  }
+}

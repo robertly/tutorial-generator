@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "heightmap-viewer",
+  "title": "Heightmap viewer",
+  "goal": "Render an fBM heightmap as a biome-colored top-down map.",
+  "tags": [
+    "editableimage",
+    "graphics",
+    "procedural"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Fractional Brownian motion (fBM) sums multiple octaves of noise to\ncreate natural-looking terrain. Color each pixel by height band\n(water, sand, grass, rock, snow) and you have a procedural map.\n"
+    },
+    {
+      "id": "s2-gui",
+      "type": "scripted",
+      "body": "ScreenGui host.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "HeightGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.HeightGui"
+      }
+    },
+    {
+      "id": "s3-canvas",
+      "type": "scripted",
+      "body": "Canvas.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.HeightGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            512,
+            0,
+            512
+          ],
+          "Position": [
+            0.5,
+            -256,
+            0.5,
+            -256
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.HeightGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-height",
+      "type": "codeEdit",
+      "body": "fBM is 5 octaves of `math.noise` summed with halving amplitude and\ndoubling frequency. Colors are a simple threshold cascade. A tiny\nheight-difference shade to the up-left neighbor simulates lighting.\n",
+      "target": {
+        "path": "StarterGui.HeightGui.Canvas.Height",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\n\nlocal W, H = 256, 256\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nlocal buf = buffer.create(W * H * 4)\n\nlocal function fbm(x, y)\n  local v, amp, freq = 0, 1, 0.02\n  for _ = 1, 5 do\n    v += math.noise(x * freq, y * freq) * amp\n    amp *= 0.5\n    freq *= 2\n  end\n  return v\nend\n\nlocal function colorFor(h)\n  if h < -0.1 then return 30, 60, 150\n  elseif h < 0.05 then return 70, 130, 200\n  elseif h < 0.15 then return 220, 200, 140\n  elseif h < 0.35 then return 80, 150, 70\n  elseif h < 0.55 then return 50, 100, 50\n  elseif h < 0.75 then return 120, 110, 100\n  else return 240, 240, 250 end\nend\n\nlocal k = 0\nfor y = 0, H - 1 do\n  for x = 0, W - 1 do\n    local h = fbm(x, y)\n    local r, g, b = colorFor(h)\n    local hn = fbm(x - 1, y - 1)\n    local shade = 0.85 + math.clamp((h - hn) * 4, -0.15, 0.15)\n    buffer.writeu8(buf, k,     math.clamp(math.floor(r * shade), 0, 255))\n    buffer.writeu8(buf, k + 1, math.clamp(math.floor(g * shade), 0, 255))\n    buffer.writeu8(buf, k + 2, math.clamp(math.floor(b * shade), 0, 255))\n    buffer.writeu8(buf, k + 3, 255)\n    k += 4\n  end\nend\n\nimg:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nlabel.ImageContent = Content.fromObject(img)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.HeightGui.Canvas.Height"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). A procedural biome map appears with oceans,\nbeaches, forests, mountains, and snowcaps.\n"
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "plasma-effect",
+  "title": "Plasma effect",
+  "goal": "Animate a demoscene plasma field with sines mapped to RGB.",
+  "tags": [
+    "editableimage",
+    "graphics",
+    "animation"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "The classic plasma: sum a few sine waves over x, y, and time, then\nmap the result through offset sines for each color channel.\nSurprisingly pretty for 20 lines of math.\n"
+    },
+    {
+      "id": "s2-gui",
+      "type": "scripted",
+      "body": "ScreenGui host.",
+      "action": {
+        "op": "createInstance",
+        "class": "ScreenGui",
+        "parent": "StarterGui",
+        "props": {
+          "Name": "PlasmaGui",
+          "ResetOnSpawn": false
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.PlasmaGui"
+      }
+    },
+    {
+      "id": "s3-canvas",
+      "type": "scripted",
+      "body": "Canvas ImageLabel.",
+      "action": {
+        "op": "createInstance",
+        "class": "ImageLabel",
+        "parent": "StarterGui.PlasmaGui",
+        "props": {
+          "Name": "Canvas",
+          "Size": [
+            0,
+            576,
+            0,
+            576
+          ],
+          "Position": [
+            0.5,
+            -288,
+            0.5,
+            -288
+          ],
+          "BackgroundColor3": [
+            0,
+            0,
+            0
+          ],
+          "BorderSizePixel": 0
+        }
+      },
+      "focus": {
+        "selection": "StarterGui.PlasmaGui.Canvas"
+      }
+    },
+    {
+      "id": "s4-plasma",
+      "type": "codeEdit",
+      "body": "Add the Plasma LocalScript. Each Heartbeat, advance time, recompute\nevery pixel as a sum of sines, and commit the buffer.\n",
+      "target": {
+        "path": "StarterGui.PlasmaGui.Canvas.Plasma",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "local AssetService = game:GetService(\"AssetService\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal W, H = 192, 192\nlocal label = script.Parent\nlocal img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })\nlocal buf = buffer.create(W * H * 4)\n\nlocal t = 0\nRunService.Heartbeat:Connect(function(dt)\n  t += dt\n  local k = 0\n  for y = 0, H - 1 do\n    for x = 0, W - 1 do\n      local fx, fy = x / W, y / H\n      local v = math.sin(fx * 10 + t) + math.sin(fy * 10 + t * 0.8)\n        + math.sin((fx + fy) * 8 + t * 1.3)\n        + math.sin(math.sqrt((fx - 0.5) ^ 2 + (fy - 0.5) ^ 2) * 20 + t * 2)\n      v = v * 0.25\n      buffer.writeu8(buf, k, math.floor((math.sin(v * math.pi) * 0.5 + 0.5) * 255))\n      buffer.writeu8(buf, k + 1, math.floor((math.sin(v * math.pi + 2) * 0.5 + 0.5) * 255))\n      buffer.writeu8(buf, k + 2, math.floor((math.sin(v * math.pi + 4) * 0.5 + 0.5) * 255))\n      buffer.writeu8(buf, k + 3, 255)\n      k += 4\n    end\n  end\n  img:WritePixelsBuffer(Vector2.zero, img.Size, buf)\nend)\n\nlabel.ImageContent = Content.fromObject(img)\n",
+      "focus": {
+        "script": {
+          "path": "StarterGui.PlasmaGui.Canvas.Plasma"
+        }
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 **Play** (F5). The canvas fills with swirling color \u2014 wavy\nbands that flow and interfere. Shift+F5 to stop.\n"
+    }
+  ]
+}
