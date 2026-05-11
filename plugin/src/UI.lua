@@ -439,7 +439,10 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		end
 		currentIndex += 1
 		undoStack[currentIndex] = undoOrErr
-		render()
+		local okRender, errRender = pcall(render)
+		if not okRender then
+			warn(`[tutorial] render after '{step.id}' failed: {errRender}`)
+		end
 		return true
 	end
 

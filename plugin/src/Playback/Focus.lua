@@ -74,6 +74,9 @@ local function panCameraTo(instances: { Instance })
 	tween:Play()
 end
 
+-- Focus is best-effort: if Studio refuses to tween the edit-mode camera,
+-- open a script, or change the selection, we log it and move on. None of
+-- these are load-bearing for actually applying the lesson.
 local function apply(focus)
 	if not focus then return end
 
@@ -86,24 +89,28 @@ local function apply(focus)
 				table.insert(instances, inst)
 			end
 		end
-		Selection:Set(instances)
-		panCameraTo(instances)
+		local okSel, errSel = pcall(function() Selection:Set(instances) end)
+		if not okSel then warn(`[tutorial] focus selection failed: {errSel}`) end
+		local okPan, errPan = pcall(panCameraTo, instances)
+		if not okPan then warn(`[tutorial] focus camera pan failed: {errPan}`) end
 	end
 
 	if focus.script then
-		local script_ = ResolvePath.resolve(focus.script.path)
-		if script_ and script_:IsA("LuaSourceContainer") then
-			ScriptEditorService:OpenScriptDocumentAsync(script_)
-			-- Line highlight: post-open, try to position the cursor.
-			local doc = ScriptEditorService:FindScriptDocument(script_)
-			if doc and focus.script.startLine then
-				local startLine = focus.script.startLine
-				local endLine = focus.script.endLine or startLine
-				pcall(function()
-					doc:ForceSetSelectionAsync(startLine, 1, endLine, 1)
-				end)
+		local okScr, errScr = pcall(function()
+			local script_ = ResolvePath.resolve(focus.script.path)
+			if script_ and script_:IsA("LuaSourceContainer") then
+				ScriptEditorService:OpenScriptDocumentAsync(script_)
+				local doc = ScriptEditorService:FindScriptDocument(script_)
+				if doc and focus.script.startLine then
+					local startLine = focus.script.startLine
+					local endLine = focus.script.endLine or startLine
+					pcall(function()
+						doc:ForceSetSelectionAsync(startLine, 1, endLine, 1)
+					end)
+				end
 			end
-		end
+		end)
+		if not okScr then warn(`[tutorial] focus script failed: {errScr}`) end
 	end
 end
 
