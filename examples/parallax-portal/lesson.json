@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "parallax-portal",
+  "title": "Parallax Portal",
+  "goal": "Demonstrates a portal with a 'depth' effect achieved with parallaxing images.",
+  "tags": [
+    "General",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates a portal with a 'depth' effect achieved with parallaxing images.\n\nThis sample was ported from `solutions-samples/parallax-portal`. Every step is deterministic \u2014 watch the components assemble under `Workspace.ParallaxPortal`."
+    },
+    {
+      "id": "s2-folder-parallaxportal",
+      "type": "scripted",
+      "body": "Add a Folder `ParallaxPortal` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "ParallaxPortal"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ParallaxPortal"
+      }
+    },
+    {
+      "id": "s3-folder-instances",
+      "type": "scripted",
+      "body": "Add a Folder `Instances` under `Workspace.ParallaxPortal` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.ParallaxPortal",
+        "props": {
+          "Name": "Instances"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ParallaxPortal.Instances"
+      }
+    },
+    {
+      "id": "s4-clone-portal",
+      "type": "scripted",
+      "body": "Clone the bundled `Portal` instance tree into `Workspace.ParallaxPortal.Instances`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.parallax-portal.Portal",
+        "parent": "Workspace.ParallaxPortal.Instances",
+        "name": "Portal"
+      },
+      "focus": {
+        "selection": "Workspace.ParallaxPortal.Instances.Portal"
+      }
+    },
+    {
+      "id": "s5-portalscript",
+      "type": "codeEdit",
+      "body": "Add `PortalScript` (Script) under `Workspace.ParallaxPortal`.",
+      "target": {
+        "path": "Workspace.ParallaxPortal.PortalScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\nlocal RunService = game:GetService(\"RunService\")\nlocal Workspace = game:GetService(\"Workspace\")\n\nlocal instances = script.Parent.Instances\nlocal portal = instances:WaitForChild(\"Portal\").Portal\nlocal portalGui = portal.PortalGui.Portal\n\ntype LayerInfo = { position: UDim2, depth: number }\n\nlocal layers: { [GuiObject]: LayerInfo } = {}\n\nlocal function addLayer(layer: any)\n\tif not layer:IsA(\"GuiObject\") then\n\t\treturn\n\tend\n\n\tlayers[layer] = {\n\t\tposition = layer.Position,\n\t\tdepth = layer:GetAttribute(\"ParallaxDepth\") or 0,\n\t}\nend\n\nlocal function update()\n\tlocal camera = Workspace.CurrentCamera :: Camera\n\n\tlocal portalRatio = portal.Size.Y / portal.Size.X\n\tlocal cameraDirection = (portal.Position - camera.CFrame.Position).Unit\n\tlocal portalDirection = portal.CFrame:VectorToObjectSpace(cameraDirection)\n\tlocal correctedDirection = Vector3.new(portalDirection.X, portalDirection.Y / portalRatio, 0)\n\n\tfor layer, info in layers do\n\t\tlocal offset = UDim2.fromScale(correctedDirection.X * info.depth, correctedDirection.Y * info.depth)\n\t\tlayer.Position = info.position + offset\n\tend\nend\n\nlocal function initialize()\n\tportalGui.ChildAdded:Connect(addLayer)\n\tRunService.RenderStepped:Connect(update)\n\n\tfor _, layer in portalGui:GetChildren() do\n\t\taddLayer(layer)\n\tend\nend\n\ninitialize()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ParallaxPortal.PortalScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.ParallaxPortal` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.parallax-portal.Portal",
+      "name": "Portal",
+      "description": "Bundled instance tree from solutions-samples/parallax-portal."
+    }
+  ]
+}

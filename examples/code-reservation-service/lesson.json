@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "id": "code-reservation-service",
+  "title": "Code Reservation Service",
+  "goal": "Demonstrates a system to reserve and hand out single-use codes.",
+  "tags": [
+    "Cloud Services",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates a system to reserve and hand out single-use codes.\n\nThis sample was ported from `solutions-samples/code-reservation-service`. Every step is deterministic \u2014 watch the components assemble under `Workspace.CodeReservationService`."
+    },
+    {
+      "id": "s2-folder-codereservationservice",
+      "type": "scripted",
+      "body": "Add a Folder `CodeReservationService` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "CodeReservationService"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CodeReservationService"
+      }
+    },
+    {
+      "id": "s3-codereservationservice",
+      "type": "codeEdit",
+      "body": "Add `CodeReservationService` (ModuleScript) under `Workspace.CodeReservationService`.",
+      "target": {
+        "path": "Workspace.CodeReservationService.CodeReservationService",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal DataStoreService = game:GetService(\"DataStoreService\")\nlocal Players = game:GetService(\"Players\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal CodeStatus = require(script.CodeStatus)\nlocal Constants = require(script.Constants)\nlocal Manager = require(script.Manager)\nlocal Reservation = require(script.Reservation)\n\nlocal CodeReservationService = {\n\t_initialized = false,\n\t_reservations = {} :: { [string]: typeof(Reservation.new(\"\", 0)) },\n\t_managers = {} :: { [string]: typeof(Manager.new(\"\")) },\n}\n\nfunction CodeReservationService.registerCodesAsync(key: string, codes: { string })\n\tassert(RunService:IsStudio(), \"Codes must be registered in Studio\")\n\n\tlocal dataStore = DataStoreService:GetDataStore(string.format(Constants.DATA_STORE_NAME_TEMPLATE, key))\n\n\tdataStore:UpdateAsync(Constants.DATA_STORE_CODES_KEY, function(oldData)\n\t\tif not oldData then\n\t\t\toldData = {}\n\t\tend\n\t\tlocal newData = oldData :: { [string]: string }\n\n\t\tfor _, code in codes do\n\t\t\tnewData[code] = CodeStatus.Available\n\t\tend\n\n\t\treturn newData\n\tend)\nend\n\n-- Check if the specified reservation has codes available\nfunction CodeReservationService.reservationHasCodes(key: string): boolean\n\tlocal reservation = CodeReservationService._reservations[key]\n\tassert(reservation, `Reservation '{key}' is not open`)\n\n\treturn reservation:hasCodes()\nend\n\n-- Attempt to get a code from the specified reservation\nfunction CodeReservationService.getCode(key: string): (boolean, string?)\n\tlocal reservation = CodeReservationService._reservations[key]\n\tassert(reservation, `Reservation '{key}' is not open`)\n\n\tif reservation:hasCodes() then\n\t\tlocal code = reservation:getCode()\n\t\treturn true, code\n\telse\n\t\treturn false\n\tend\nend\n\n-- Open up a new code reservation, starting a DataStore manager if necessary\nfunction CodeReservationService.openReservation(key: string, reserveCount: number?)\n\tassert(not CodeReservationService._reservations[key], `Reservation '{key}' is already open`)\n\n\tlocal reservation = Reservation.new(key, reserveCount or Players.MaxPlayers)\n\n\t-- If no manager exists for this key, create a new one to manager DataStore saving/loading\n\tif not CodeReservationService._managers[key] then\n\t\tlocal manager = Manager.new(key)\n\t\tCodeReservationService._managers[key] = manager\n\t\tmanager:initialize()\n\tend\n\n\tCodeReservationService._reservations[key] = reservation\n\treservation:open()\nend\n\nfunction CodeReservationService.closeReservationAsync(key: string)\n\tlocal reservation = CodeReservationService._reservations[key]\n\tassert(reservation, `Reservation '{key}' is not open`)\n\n\tCodeReservationService._reservations[key] = nil\n\treservation:closeAsync()\nend\n\nfunction CodeReservationService.closeAllReservationsAsync()\n\tfor key in CodeReservationService._reservations do\n\t\tCodeReservationService.closeReservationAsync(key)\n\tend\nend\n\nfunction CodeReservationService._initialize()\n\tassert(not CodeReservationService._initialized, \"CodeReservationService is already initialized\")\n\n\tgame:BindToClose(CodeReservationService.closeAllReservationsAsync)\n\n\tCodeReservationService._initialized = true\nend\n\nCodeReservationService._initialize()\n\nreturn CodeReservationService\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CodeReservationService.CodeReservationService"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-codereservationservice",
+      "type": "scripted",
+      "body": "Add a Folder `CodeReservationService` under `Workspace.CodeReservationService` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.CodeReservationService",
+        "props": {
+          "Name": "CodeReservationService"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CodeReservationService.CodeReservationService"
+      }
+    },
+    {
+      "id": "s5-codestatu",
+      "type": "codeEdit",
+      "body": "Add `CodeStatu` (ModuleScript) under `Workspace.CodeReservationService.CodeReservationService`.",
+      "target": {
+        "path": "Workspace.CodeReservationService.CodeReservationService.CodeStatu",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n-- Keys are shortened here to preserve space, allowing more codes to be stored in DataStore\nlocal CodeStatus = {\n\tAvailable = \"A\",\n\tReserved = \"R\",\n\tUsed = \"U\",\n}\n\nreturn CodeStatus\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CodeReservationService.CodeReservationService.CodeStatu"
+        }
+      }
+    },
+    {
+      "id": "s6-consta",
+      "type": "codeEdit",
+      "body": "Add `Consta` (ModuleScript) under `Workspace.CodeReservationService.CodeReservationService`.",
+      "target": {
+        "path": "Workspace.CodeReservationService.CodeReservationService.Consta",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal Constants = {\n\tMINIMUM_CODES_PERCENT_TO_UPDATE = 0.3, -- Once there are 30% or less codes reserved by a server, the reservation needs to update and reserve more\n\n\tUPDATE_ATTEMPTS = 3, -- Number of times to retry DataStore/MemoryStore operations\n\tUPDATE_RETRY_PAUSE_CONSTANT = 2, -- Pause constant for retrying DataStore/MemoryStore operations\n\tUPDATE_RETRY_PAUSE_EXPONENT_BASE = 2, -- Pause exponent base for retrying DataStore/MemoryStore operations\n\n\tRESERVATION_UPDATE_INTERVAL = 30, -- The interval on which servers register used codes and reserve new ones\n\tMEMORY_STORE_NAME_TEMPLATE = \"CodeReservation_%s\", -- The MemoryStore name template, formatted with an identifier per batch of codes\n\tMEMORY_STORE_AVAILABLE_KEY = \"Available\", -- The MemoryStore key used to store available codes\n\tMEMORY_STORE_USED_KEY = \"Used\", -- The MemoryStore key used to store used codes\n\tMEMORY_STORE_RELEASED_KEY = \"Released\", -- The MemoryStore key used to store released codes\n\tMEMORY_STORE_EXPIRATION = 86_400 * 30, -- The expiration time for MemoryStore keys, set to 30 days\n\tMEMORY_STORE_VALUE_MAX_SIZE = 32_000, -- The maximum size of a MemoryStoreSortedMap value is 32KB per: https://create.roblox.com/docs/cloud-services/memory-stores/sorted-map#limits\n\n\tLEADER_UPDATE_INTERVAL = 60, -- The interval on which the leader server saves used codes and makes new ones available\n\tDATA_STORE_NAME_TEMPLATE = \"CodeStorage_%s\", -- The DataStore name template, formatted with an identifier per batch of codes\n\tDATA_STORE_CODES_KEY = \"Codes\", -- The DataStore key used to store codes\n}\n\nreturn Constants\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CodeReservationService.CodeReservationService.Consta"
+        }
+      }
+    },
+    {
+      "id": "s7-manag",
+      "type": "codeEdit",
+      "body": "Add `Manag` (ModuleScript) under `Workspace.CodeReservationService.CodeReservationService`.",
+      "target": {
+        "path": "Workspace.CodeReservationService.CodeReservationService.Manag",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal DataStoreService = game:GetService(\"DataStoreService\")\nlocal MemoryStoreService = game:GetService(\"MemoryStoreService\")\n\nlocal CodeStatus = require(script.Parent.CodeStatus)\nlocal Constants = require(script.Parent.Constants)\nlocal LeaderElection = require(script.Parent.LeaderElection)\nlocal getItemsFitting = require(script.Parent.getItemsFitting)\nlocal retryAsync = require(script.Parent.retryAsync)\n\ntype CodeStatusMap = { [string]: string }\n\nlocal Manager = {}\nManager.__index = Manager\n\nfunction Manager.new(key: string)\n\tlocal dataStore = DataStoreService:GetDataStore(string.format(Constants.DATA_STORE_NAME_TEMPLATE, key))\n\tlocal memoryStore = MemoryStoreService:GetSortedMap(string.format(Constants.MEMORY_STORE_NAME_TEMPLATE, key))\n\n\tlocal self = {\n\t\t_dataStore = dataStore,\n\t\t_memoryStore = memoryStore,\n\t\t_key = key,\n\t}\n\tsetmetatable(self, Manager)\n\treturn self\nend\n\n-- Read a list of codes from the specified MemoryStore key\nfunction Manager:_getCodesFromMemoryAsync(key: string): { string }\n\tlocal memoryStore = self._memoryStore :: MemoryStoreSortedMap\n\n\tlocal success, result = pcall(function()\n\t\treturn memoryStore:GetAsync(key)\n\tend)\n\n\tif success then\n\t\treturn result\n\telse\n\t\twarn(`Failed to get {key} codes from MemoryStore because: {result}`)\n\t\treturn {}\n\tend\nend\n\n-- Remove a list of codes from the specified MemoryStore key\nfunction Manager:_removeCodesFromMemoryAsync(key: string, codes: { string })\n\tlocal memoryStore = self._memoryStore :: MemoryStoreSortedMap\n\n\tlocal success, result = pcall(function()\n\t\tmemoryStore:UpdateAsync(key, function(oldData): { string }?\n\t\t\tif not oldData then\n\t\t\t\t-- If no data currently exists in the key, then there's nothing to remove.\n\t\t\t\t-- It's okay to treat this as a success since the codes are technically 'removed'.\n\t\t\t\t-- This shouldn't normally happen, since codes are only removed once they have been read first.\n\t\t\t\t-- If the key *was* entirely wiped since the last read, something has gone horribly wrong, so we'll throw a warning.\n\t\t\t\twarn(`Attempted to remove codes from {key}, but no data exists`)\n\t\t\t\treturn nil\n\t\t\tend\n\t\t\tlocal newData = oldData :: { string }\n\n\t\t\tfor _, code in codes do\n\t\t\t\tlocal index = table.find(newData, code)\n\t\t\t\tif index then\n\t\t\t\t\ttable.remove(newData, index)\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn newData\n\t\tend, Constants.MEMORY_STORE_EXPIRATION)\n\tend)\n\n\tif not success then\n\t\twarn(`Failed to remove {key} codes from MemoryStore because: {result}`)\n\tend\nend\n\n-- Save used and released codes into DataStore using a 3 step process:\n-- Step 1: Read codes from Used and Released MemoryStore keys\n-- Step 2: Update code statuses in DataStore\n-- Step 3: Remove codes that were updated in DataStore from MemoryStore\n-- This process ensures that the minimal amount of codes are lost (i.e. stuck in a Reserved state) in case of a DataStore or MemoryStore failure\nfunction Manager:_saveUsedAndReleasedCodesAsync(): (boolean, string?)\n\tlocal dataStore = self._dataStore :: GlobalDataStore\n\n\t-- Step 1: Read codes from Used and Released MemoryStore keys\n\tlocal usedCodes: { string } = self:_getCodesFromMemoryAsync(Constants.MEMORY_STORE_USED_KEY)\n\tlocal releasedCodes: { string } = self:_getCodesFromMemoryAsync(Constants.MEMORY_STORE_RELEASED_KEY)\n\n\tif #usedCodes == 0 and #releasedCodes == 0 then\n\t\treturn true\n\tend\n\n\t-- Step 2: Update code statuses in DataStore with a single UpdateAsync call\n\tlocal updateDataSuccess, updateDataResult = retryAsync(function()\n\t\tdataStore:UpdateAsync(Constants.DATA_STORE_CODES_KEY, function(oldData): CodeStatusMap?\n\t\t\tif not oldData then\n\t\t\t\twarn(`DataStore for {self._key} has not been initialized!`)\n\t\t\t\treturn nil\n\t\t\tend\n\t\t\tlocal newData = oldData :: CodeStatusMap\n\n\t\t\tfor _, code in usedCodes do\n\t\t\t\tif newData[code] == CodeStatus.Used then\n\t\t\t\t\twarn(`Attempted to mark a code as Used twice: {code}`)\n\t\t\t\telse\n\t\t\t\t\tnewData[code] = CodeStatus.Used\n\t\t\t\tend\n\t\t\tend\n\n\t\t\tfor _, code in releasedCodes do\n\t\t\t\tif newData[code] == CodeStatus.Used then\n\t\t\t\t\twarn(`Attempted to release a Used code: {code}`)\n\t\t\t\telse\n\t\t\t\t\tnewData[code] = CodeStatus.Available\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn newData\n\t\tend)\n\tend, Constants.UPDATE_ATTEMPTS, Constants.UPDATE_RETRY_PAUSE_CONSTANT, Constants.UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\n\tif not updateDataSuccess then\n\t\treturn false, `Failed to update codes in DataStore because: {updateDataResult}`\n\tend\n\n\t-- Step 3: Remove codes that were updated in DataStore from MemoryStore\n\tself:_removeCodesFromMemoryAsync(Constants.MEMORY_STORE_USED_KEY, usedCodes)\n\tself:_removeCodesFromMemoryAsync(Constants.MEMORY_STORE_RELEASED_KEY, releasedCodes)\n\n\treturn true\nend\n\n-- Refill the Available MemoryStore codes from DataStore using a 3 step process:\n-- Step 1: Read codes from Available MemoryStore key\n-- Step 2: Obtain a list of Available codes from DataStore that can fit into the Available MemoryStore, and mark them as Reserved\n-- Step 3: Place codes that were updated in DataStore into Available MemoryStore\nfunction Manager:_makeCodesAvailableAsync(): (boolean, string?)\n\tlocal memoryStore = self._memoryStore :: MemoryStoreSortedMap\n\tlocal dataStore = self._dataStore :: GlobalDataStore\n\n\t-- Get new Available codes from DataStore to place in MemoryStore\n\tlocal newAvailableCodes: { string } = {}\n\n\tlocal updateDataSuccess, updateDataResult = retryAsync(function()\n\t\t-- Read Available codes in MemoryStore\n\t\tlocal availableCodesInMemory: { string } = self:_getCodesFromMemoryAsync(Constants.MEMORY_STORE_AVAILABLE_KEY)\n\n\t\tdataStore:UpdateAsync(Constants.DATA_STORE_CODES_KEY, function(oldData): CodeStatusMap?\n\t\t\t-- When the same key is updated by multiple servers at once, this callback may be called multiple\n\t\t\t-- times in order to resolve correctly. Since we have a variable that was defined outside of this\n\t\t\t-- scope, we need to reset it at the start of each callback.\n\t\t\tnewAvailableCodes = {}\n\t\t\tif not oldData then\n\t\t\t\twarn(`DataStore for {self._key} has not been initialized!`)\n\t\t\t\treturn nil\n\t\t\tend\n\t\t\tlocal newData = oldData :: CodeStatusMap\n\n\t\t\tlocal availableCodes = {}\n\t\t\tfor code, status in newData do\n\t\t\t\tif status == CodeStatus.Available then\n\t\t\t\t\ttable.insert(availableCodes, code)\n\t\t\t\tend\n\t\t\tend\n\n\t\t\tnewAvailableCodes =\n\t\t\t\tgetItemsFitting(availableCodesInMemory, availableCodes, Constants.MEMORY_STORE_VALUE_MAX_SIZE)\n\n\t\t\tif #newAvailableCodes == 0 then\n\t\t\t\treturn nil\n\t\t\tend\n\n\t\t\tfor _, code in newAvailableCodes do\n\t\t\t\tnewData[code] = CodeStatus.Reserved\n\t\t\tend\n\n\t\t\treturn newData\n\t\tend)\n\tend, Constants.UPDATE_ATTEMPTS, Constants.UPDATE_RETRY_PAUSE_CONSTANT, Constants.UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\n\tif not updateDataSuccess then\n\t\treturn false, `Failed to reserve codes from DataStore because: {updateDataResult}`\n\tend\n\n\tif #newAvailableCodes == 0 then\n\t\treturn true\n\tend\n\n\t-- Place new Available codes into MemoryStore\n\tlocal updateAvailableSuccess, updateAvailableResult = retryAsync(function()\n\t\tmemoryStore:UpdateAsync(Constants.MEMORY_STORE_AVAILABLE_KEY, function(oldData): { string }?\n\t\t\tif not oldData then\n\t\t\t\toldData = {}\n\t\t\tend\n\t\t\tlocal newData = oldData :: { string }\n\n\t\t\t-- Move all codes in newAvailableCodes to newData, starting at the index #newData + 1\n\t\t\ttable.move(newAvailableCodes, 1, #newAvailableCodes, #newData + 1, newData)\n\n\t\t\treturn newData\n\t\tend, Constants.MEMORY_STORE_EXPIRATION)\n\tend, Constants.UPDATE_ATTEMPTS, Constants.UPDATE_RETRY_PAUSE_CONSTANT, Constants.UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\n\tif not updateAvailableSuccess then\n\t\treturn false, `Failed to add new Available codes to MemoryStore because: {updateAvailableResult}`\n\tend\n\n\treturn true\nend\n\n-- Called each update cycle by the leader server\nfunction Manager:_onLeaderUpdate()\n\tlocal saveSuccess, saveResult = self:_saveUsedAndReleasedCodesAsync()\n\tif not saveSuccess then\n\t\twarn(saveResult)\n\tend\n\n\tlocal makeAvailableSuccess, makeAvailableResult = self:_makeCodesAvailableAsync()\n\tif not makeAvailableSuccess then\n\t\twarn(makeAvailableResult)\n\tend\nend\n\n-- Start a Leader Loop to update codes in DataStore and MemoryStore\nfunction Manager:initialize()\n\tLeaderElection.startLoop(self._key, Constants.LEADER_UPDATE_INTERVAL, function()\n\t\tself:_onLeaderUpdate()\n\tend)\nend\n\nreturn Manager\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CodeReservationService.CodeReservationService.Manag"
+        }
+      }
+    },
+    {
+      "id": "s8-readme",
+      "type": "codeEdit",
+      "body": "Add `README` (ModuleScript) under `Workspace.CodeReservationService.CodeReservationService`.",
+      "target": {
+        "path": "Workspace.CodeReservationService.CodeReservationService.README",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--[[\n** WARNING **\n\nThis is intended as reference code and has NOT been tested at scale.\n\nCreators looking for production implementation that scales to high player counts may wish to consider implementing\ncode reservation via an external web service using HttpService.\n\n** Code Reservation Service Module Limitations **\n\nThe Code Reservation Service Module makes codes from DataStore available in MemoryStore. Servers can reserve a\nnumber of codes from MemoryStore and hand them out to players. Once a server is running low on codes, it will\nreserve more. When a code has been handed out, it is marked as Used and never handed out again.\n\nSingle keys in a MemoryStore Sorted Map are used to hold codes, so they can be bulk read/written with a single operation.\n\n* Order of Operations *\n\t1. Leader Server selects available codes and marks them as Reserved in DataStore, they can no longer be used\n\t2. Previously selected codes are placed into Available queue in MemoryStore\n\t3. Servers remove codes from Available queue, waiting to give them out\n\t4. Servers give out codes, placing them into the Used queue in MemoryStore\n\t5. Leader Server reads codes in Used queue, marks them as Used in DataStore, then removes them from Used queue\n\nServers which shut down go through a similar process to Used codes, instead placing codes in a Released queue.\nCodes from the Released queue are marked as Available again in DataStore.\n\n* Code Limitations *\nAll codes should be a uniform length. For the purposes of this README, codes are assumed to be 6 characters in length.\nThis allows for 308,915,776 possible codes using only lowercase letters.\n\n* DataStore Limitations *\nDataStores have a maximum value of 4MB per key. Codes in DataStore are stored in a JSON encoded dictionary with the\nformat \"abcdef\": \"A\". This allows for a maximum of 307,692 codes stored in DataStore.\n\nIf more codes are required to be stored, multiple code reservations can be created.\n\n* MemoryStore Limitations *\nMemoryStores have a maximum value of 32KB per key. Codes in MemoryStore are stored in a JSON encoded array, allowing\nfor a maximum of 3,555 codes to be stored in a single MemoryStore key.\n\nNew codes are made available to servers every 60 seconds, allowing for a global code redemption rate of 3,555 codes/minute.\nIf necessary, the interval can be lowered to 30 seconds (minimum recommended) allowing for 7,110 codes/minute.\n\nThe global limit for a single SortedMap is 100,000 operation units per minute. The Available queue has the most traffic,\nas it is used by servers reserving codes and refilled by the leader server. At the default interval of 60s, the leader server\nuses 6 operation units per minute, 2 of which are directed to the Available queue. At an interval of 30s, these numbers are\ndoubled. Each individual server uses up to 4 operation units per minute, 2 of which are directed at the Available queue.\nAt either interval, this allows for a total of just under 50,000 active servers.\n\nSince each server reserves multiple codes at once, it is possible to have more Available codes than are able to fit into\nthe Used queue. For example:\n\t- Each server is configured to reserve 10 codes\n\t- Over the course of a few minutes, 500 servers each reserve 10 codes\n\t\t- Total of 5000 codes reserved by servers\n\t\t- This is possible because the Available queue will be continuously refilled\n\t- All codes are redeemed at once, not all codes can fit back into the Used queue\n\nThis is not an issue if it happens once or twice, since the servers will simply wait for the Used queue to clear out and\nthen place codes into it again. If this many codes continue to be given out, the Used queue may stay full indefinitely\n\nWhen servers shut down, the codes they have currently reserved are released back to MemoryStore to be made available again.\nIf all servers shut down at once and there are more than 3,555 codes reserved across the servers, some codes will fail to be\nreleased and will not be made available again.\n--]]\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CodeReservationService.CodeReservationService.README"
+        }
+      }
+    },
+    {
+      "id": "s9-reservatio",
+      "type": "codeEdit",
+      "body": "Add `Reservatio` (ModuleScript) under `Workspace.CodeReservationService.CodeReservationService`.",
+      "target": {
+        "path": "Workspace.CodeReservationService.CodeReservationService.Reservatio",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal MemoryStoreService = game:GetService(\"MemoryStoreService\")\n\nlocal Constants = require(script.Parent.Constants)\nlocal retryAsync = require(script.Parent.retryAsync)\nlocal getItemsFitting = require(script.Parent.getItemsFitting)\nlocal setSequentialInterval = require(script.Parent.setSequentialInterval)\n\nlocal Reservation = {}\nReservation.__index = Reservation\n\nfunction Reservation.new(key: string, reserveCount: number)\n\tlocal memoryStore = MemoryStoreService:GetSortedMap(string.format(Constants.MEMORY_STORE_NAME_TEMPLATE, key))\n\tlocal self = {\n\t\t_open = false,\n\t\t_key = key,\n\t\t_codes = {},\n\t\t_usedCodesToRegister = {},\n\t\t_reserveCount = reserveCount,\n\t\t_clearUpdate = nil :: (() -> nil)?,\n\t\t_memoryStore = memoryStore,\n\t}\n\tsetmetatable(self, Reservation)\n\treturn self\nend\n\n-- Reserve Available codes from MemoryStore to be given out by the server\nfunction Reservation:_reserveCodesAsync(numCodesToReserve: number)\n\tlocal success, result = retryAsync(function()\n\t\tlocal codes: { string } = {}\n\n\t\tself._memoryStore:UpdateAsync(Constants.MEMORY_STORE_AVAILABLE_KEY, function(oldData)\n\t\t\t-- When the same key is updated by multiple servers at once, this callback may be called multiple\n\t\t\t-- times in order to resolve correctly. Since codes is defined outside of the callback, we reset\n\t\t\t-- it at the start of the callback to make sure there are no issues if it is called multiple times.\n\t\t\tcodes = {}\n\t\t\tif not oldData then\n\t\t\t\toldData = {}\n\t\t\tend\n\t\t\tlocal newData = oldData :: { string }\n\n\t\t\t-- Reserve new codes from the Available MemoryStore\n\t\t\twhile #codes < numCodesToReserve and #newData > 0 do\n\t\t\t\tlocal code = table.remove(newData, 1) :: string\n\t\t\t\ttable.insert(codes, code)\n\t\t\tend\n\n\t\t\treturn newData\n\t\tend, Constants.MEMORY_STORE_EXPIRATION)\n\n\t\treturn codes\n\tend, Constants.UPDATE_ATTEMPTS, Constants.UPDATE_RETRY_PAUSE_CONSTANT, Constants.UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\n\tif success then\n\t\tlocal reservedCodes = result :: { string }\n\t\tif #reservedCodes < numCodesToReserve then\n\t\t\twarn(`Failed to retrieve enough codes. Retrieved: {#result}/{numCodesToReserve}`)\n\t\tend\n\n\t\t-- Since the MemoryStore successfully updated, it is safe to add the newly reserved codes\n\t\tfor _, code in reservedCodes do\n\t\t\ttable.insert(self._codes, code)\n\t\tend\n\n\t\treturn true\n\telse\n\t\treturn false, `Failed to reserve codes because: {result}`\n\tend\nend\n\n-- Transfer codes to the specified MemoryStore key, removing any that are successfully added from the table that is passed in\nfunction Reservation:_transferCodesToMemoryAsync(key: string, codes: { string }): (boolean, string?)\n\tif #codes == 0 then\n\t\treturn true\n\tend\n\n\tlocal memoryStore = self._memoryStore :: MemoryStoreSortedMap\n\tlocal codesToAdd: { string } = {}\n\n\t-- This is safe to retry even when called multiple times in a row. The codes table is passed in by reference, so if another\n\t-- call of this function succeeds and clears it, the current call will see an empty table and return early.\n\tlocal success, result = retryAsync(function()\n\t\tmemoryStore:UpdateAsync(key, function(oldData): { string }?\n\t\t\t-- When the same key is updated by multiple servers at once, this callback may be called multiple\n\t\t\t-- times in order to resolve correctly. Since codesToAdd is defined outside of the callback, we\n\t\t\t-- reset it at the start of the callback to make sure there are no issues if it is called multiple times.\n\t\t\tcodesToAdd = table.clone(codes)\n\t\t\tif #codesToAdd == 0 then\n\t\t\t\treturn nil\n\t\t\tend\n\t\t\tif not oldData then\n\t\t\t\toldData = {}\n\t\t\tend\n\t\t\tlocal newData = oldData :: { string }\n\n\t\t\t-- Make sure we are not placing too much data into the MemoryStore\n\t\t\tcodesToAdd = getItemsFitting(newData, codesToAdd, Constants.MEMORY_STORE_VALUE_MAX_SIZE)\n\t\t\tif #codesToAdd == 0 then\n\t\t\t\treturn nil\n\t\t\tend\n\n\t\t\tfor _, code in codesToAdd do\n\t\t\t\t-- Make sure duplicate codes are not being inserted. This should not happen in normal flow,\n\t\t\t\t-- if it does then something has gone majorly wrong.\n\t\t\t\tif table.find(newData, code) then\n\t\t\t\t\twarn(`Something bad happened! Attempted to insert duplicate {key} code`)\n\t\t\t\telse\n\t\t\t\t\ttable.insert(newData, code)\n\t\t\t\tend\n\t\t\tend\n\n\t\t\treturn newData\n\t\tend, Constants.MEMORY_STORE_EXPIRATION)\n\tend, Constants.UPDATE_ATTEMPTS, Constants.UPDATE_RETRY_PAUSE_CONSTANT, Constants.UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\n\tif success then\n\t\tfor _, code in codesToAdd do\n\t\t\tlocal index = table.find(codes, code)\n\t\t\tif index then\n\t\t\t\ttable.remove(codes, index)\n\t\t\tend\n\t\tend\n\n\t\treturn true\n\telse\n\t\treturn false, `Failed to add {key} codes to MemoryStore because: {result}`\n\tend\nend\n\n-- If the server is running low on codes, reserve new codes from MemoryStore.\n-- At the same time, mark any codes that have been used by this server as Used in MemoryStore.\nfunction Reservation:_updateAsync()\n\tif not self._open then\n\t\treturn\n\tend\n\n\tlocal reserveCount = self._reserveCount :: number\n\tlocal numCodesToFill = reserveCount - #self._codes\n\tlocal minimumCodesForUpdate = math.floor(reserveCount * Constants.MINIMUM_CODES_PERCENT_TO_UPDATE)\n\tlocal requiresNewCodes = #self._codes <= minimumCodesForUpdate\n\tlocal hasUsedCodesToRegister = #self._usedCodesToRegister > 0\n\n\t-- If we do not need more codes and do not have any used codes to register, no need to access MemoryStore\n\tif not (requiresNewCodes or hasUsedCodesToRegister) then\n\t\treturn\n\tend\n\n\tif requiresNewCodes then\n\t\tlocal success, result = self:_reserveCodesAsync(numCodesToFill)\n\t\tif not success then\n\t\t\twarn(result)\n\t\tend\n\tend\n\n\tif hasUsedCodesToRegister then\n\t\tlocal success, result =\n\t\t\tself:_transferCodesToMemoryAsync(Constants.MEMORY_STORE_USED_KEY, self._usedCodesToRegister)\n\t\tif not success then\n\t\t\twarn(result)\n\t\tend\n\tend\nend\n\nfunction Reservation:hasCodes(): boolean\n\treturn #self._codes > 0\nend\n\n-- Get the next available code that has been reserved by the server, adding it to the list of used codes\nfunction Reservation:getCode(): string\n\tassert(self:hasCodes(), \"No codes available!\")\n\tlocal code = table.remove(self._codes, 1) :: string\n\ttable.insert(self._usedCodesToRegister, code)\n\treturn code\nend\n\n-- Initialize the reservation, starting a loop to reserve Available codes and save Used/Released codes\nfunction Reservation:open()\n\tassert(not self._open, `Reservation '{self._key}' is already open`)\n\n\ttask.spawn(function()\n\t\t-- setSequentialInterval waits for the interval first before it starts,\n\t\t-- so we call self:_updateAsync() to force an update immediately\n\t\tself:_updateAsync()\n\t\tself._clearUpdate = setSequentialInterval(function()\n\t\t\tself:_updateAsync()\n\t\tend, Constants.RESERVATION_UPDATE_INTERVAL)\n\tend)\n\n\tself._open = true\nend\n\n-- Reservation closing is specificaly Async in order to block server shutdown until reserved codes have been released\nfunction Reservation:closeAsync()\n\tif self._clearUpdate then\n\t\tself._clearUpdate()\n\tend\n\n\tlocal releaseSuccess, releaseResult =\n\t\tself:_transferCodesToMemoryAsync(Constants.MEMORY_STORE_RELEASED_KEY, self._codes)\n\tif not releaseSuccess then\n\t\twarn(releaseResult)\n\tend\n\n\tlocal registerUsedSuccess, registerUsedResult =\n\t\tself:_transferCodesToMemoryAsync(Constants.MEMORY_STORE_USED_KEY, self._usedCodesToRegister)\n\tif not registerUsedSuccess then\n\t\twarn(registerUsedResult)\n\tend\n\n\tself._open = false\nend\n\nreturn Reservation\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CodeReservationService.CodeReservationService.Reservatio"
+        }
+      }
+    },
+    {
+      "id": "s10-getitemsfitting",
+      "type": "codeEdit",
+      "body": "Add `getItemsFitting` (ModuleScript) under `Workspace.CodeReservationService.CodeReservationService`.",
+      "target": {
+        "path": "Workspace.CodeReservationService.CodeReservationService.getItemsFitting",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal HttpService = game:GetService(\"HttpService\")\n\n-- Returns a table of items that can fit into another table while staying under a maximum JSON encoded length.\n-- Since MemoryStore has a maximum value length per key, this is used to make sure the final JSON encoded\n-- table length is within the MemoryStore limits.\n-- Note: items are expected to have uniform length\nlocal function getItemsFitting<T>(container: { T }, items: { T }, maxLength: number): { T }\n\tlocal containerWithItems = table.clone(container)\n\ttable.move(items, 1, #items, #containerWithItems + 1, containerWithItems)\n\t-- Get the minimum (container without items) and maximum (container with items) JSON encoded lengths\n\tlocal min = string.len(HttpService:JSONEncode(container))\n\tlocal max = string.len(HttpService:JSONEncode(containerWithItems))\n\t-- Calculate the length of each item after it has been JSON encoded\n\tlocal itemLength = math.ceil((max - min) / #items)\n\n\t-- If the container + items is under the maximum length, simply return all items\n\tif max <= maxLength then\n\t\treturn items\n\tend\n\n\t-- Calculate the number of items that can fit into the container while staying under maxLength\n\tlocal size = min\n\tlocal amount = 0\n\twhile size + itemLength <= maxLength do\n\t\tsize += itemLength\n\t\tamount += 1\n\tend\n\n\t-- No items can fit, return an empty table\n\tif amount == 0 then\n\t\treturn {}\n\tend\n\n\t-- Move the first <amount> entries from items into an empty table and return it\n\treturn table.move(items, 1, amount, 1, {})\nend\n\nreturn getItemsFitting\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CodeReservationService.CodeReservationService.getItemsFitting"
+        }
+      }
+    },
+    {
+      "id": "s11-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.CodeReservationService` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.CodeReservationService",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CodeReservationService.Demo"
+      }
+    },
+    {
+      "id": "s12-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.CodeReservationService.Demo`.",
+      "target": {
+        "path": "Workspace.CodeReservationService.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\nlocal CodeReservationService = require(script.Parent.Parent.CodeReservationService)\n\nlocal DEMO_KEY = \"DemoReservation\"\n\nCodeReservationService.openReservation(DEMO_KEY, 10)\nprint(\"opened reservation, waiting for available codes\")\nrepeat\n\ttask.wait(1)\nuntil CodeReservationService.reservationHasCodes(DEMO_KEY)\nlocal success, code = CodeReservationService.getCode(DEMO_KEY)\nprint(\"result:\", success, code)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CodeReservationService.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s13-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.CodeReservationService` in the Explorer to see the assembled result."
+    }
+  ]
+}

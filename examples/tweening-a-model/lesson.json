@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "id": "tweening-a-model",
+  "title": "Using TweenService on a Model",
+  "goal": "Demonstrates how to properly tween a model. Models should be tweened from an anchored part. If parts within the model are unanchored, weld these parts to the anchored part. Otherwise the unanchored parts will not follow the model as it tweens. In this case, the Base part is set as the HealthPack's PrimaryPart and all other parts in the model are welded to it.",
+  "tags": [
+    "Visual",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates how to properly tween a model. Models should be tweened from an anchored part. If parts within the model are unanchored, weld these parts to the anchored part. Otherwise the unanchored parts will not follow the model as it tweens. In this case, the Base part is set as the HealthPack's PrimaryPart and all other parts in the model are welded to it.\n\nThis sample was ported from `solutions-samples/tweening-a-model`. Every step is deterministic \u2014 watch the components assemble under `Workspace.TweeningAModel`."
+    },
+    {
+      "id": "s2-folder-tweeningamodel",
+      "type": "scripted",
+      "body": "Add a Folder `TweeningAModel` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "TweeningAModel"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.TweeningAModel"
+      }
+    },
+    {
+      "id": "s3-tweenmodelscript",
+      "type": "codeEdit",
+      "body": "Add `TweenModelScript` (Script) under `Workspace.TweeningAModel`.",
+      "target": {
+        "path": "Workspace.TweeningAModel.TweenModelScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tDemonstrates how to properly tween a model. Models should be tweened from an anchored part.\n\tIf parts within the model are unanchored, weld these parts to the anchored part.\n\tOtherwise the unanchored parts will not follow the model as it tweens.\n\tIn this case, the Base part is set as the HealthPack's PrimaryPart and all other parts in the model are welded to it.\n--]]\n\nlocal TweenService = game:GetService(\"TweenService\")\n\n-- Define variables to change bounce time and bounce height\nlocal BOUNCE_TIME = 1\nlocal BOUNCE_HEIGHT = 1.5\n\nlocal healthPack = script.Parent:WaitForChild(\"HealthPack\")\nlocal primaryPart = healthPack.PrimaryPart\nlocal originalCFrame = primaryPart.CFrame\n\n-- Define a TweenInfo object for the Tween, using the previously defined variables\n-- repeatCount is set to math.huge so the tween will repeat forever\nlocal tweenInfo = TweenInfo.new(BOUNCE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, math.huge, true, 0)\n\n-- Create the Tween\nlocal tween =\n\tTweenService:Create(primaryPart, tweenInfo, { CFrame = originalCFrame + Vector3.new(0, BOUNCE_HEIGHT, 0) })\n\n-- Play the Tween\ntween:Play()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.TweeningAModel.TweenModelScript"
+        }
+      }
+    },
+    {
+      "id": "s4-clone-healthpack",
+      "type": "scripted",
+      "body": "Clone the bundled `HealthPack` instance tree into `Workspace.TweeningAModel`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.tweening-a-model.HealthPack",
+        "parent": "Workspace.TweeningAModel",
+        "name": "HealthPack"
+      },
+      "focus": {
+        "selection": "Workspace.TweeningAModel.HealthPack"
+      }
+    },
+    {
+      "id": "s5-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.TweeningAModel` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.tweening-a-model.HealthPack",
+      "name": "HealthPack",
+      "description": "Bundled instance tree from solutions-samples/tweening-a-model."
+    }
+  ]
+}

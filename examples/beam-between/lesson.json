@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "beam-between",
+  "title": "Beam Between",
+  "goal": "Given two attachments and a beam prefab, this class continuously orients duplicates of the attachments to face each other so that the beam remains straight.",
+  "tags": [
+    "Visual",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Given two attachments and a beam prefab, this class continuously orients duplicates of the attachments to face each other so that the beam remains straight.\n\nAlso provides an API to enable/disable the beam and its orientation updates.\n\nThis sample was ported from `solutions-samples/beam-between`. Every step is deterministic \u2014 watch the components assemble under `Workspace.BeamBetween`."
+    },
+    {
+      "id": "s2-folder-beambetween",
+      "type": "scripted",
+      "body": "Add a Folder `BeamBetween` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "BeamBetween"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.BeamBetween"
+      }
+    },
+    {
+      "id": "s3-beambetween",
+      "type": "codeEdit",
+      "body": "Add `BeamBetween` (ModuleScript) under `Workspace.BeamBetween`.",
+      "target": {
+        "path": "Workspace.BeamBetween.BeamBetween",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tGiven two attachments and a beam prefab, this class continuously orients duplicates of the attachments\n\tto face each other so that the beam remains straight.\n\n\tAlso provides an API to enable/disable the beam and its orientation updates.\n--]]\n\nlocal RunService = game:GetService(\"RunService\")\n\nlocal BeamBetween = {}\nBeamBetween.__index = BeamBetween\n\nfunction BeamBetween.new(attachment0: Attachment, attachment1: Attachment, beamPrefab: Beam): any\n\tlocal self = {\n\t\t-- Duplicate the given attachments to avoid modifying the originals\n\t\t_attachment0 = attachment0:Clone(),\n\t\t_attachment1 = attachment1:Clone(),\n\t\t_beam = beamPrefab:Clone(),\n\t\t_isEnabled = false,\n\t\t_heartbeatConnection = nil,\n\t}\n\tsetmetatable(self, BeamBetween)\n\n\tself:_setup(attachment0, attachment1)\n\n\treturn self\nend\n\nfunction BeamBetween:_setup(originalAttachment0: Attachment, originalAttachment1: Attachment)\n\t-- Set up the new attachments\n\tself._attachment0.Name = \"BeamBetween_\" .. originalAttachment0.Name\n\tself._attachment0.Parent = originalAttachment0.Parent\n\n\tself._attachment1.Name = \"BeamBetween_\" .. originalAttachment1.Name\n\tself._attachment1.Parent = originalAttachment1.Parent\n\n\t-- Set up the new beam\n\tself._beam.Attachment0 = self._attachment0\n\tself._beam.Attachment1 = self._attachment1\n\tself._beam.Parent = self._attachment0\nend\n\nfunction BeamBetween:_enable()\n\tself._beam.Enabled = true\n\tself._isEnabled = true\n\n\tself._heartbeatConnection = RunService.Heartbeat:Connect(function()\n\t\tself:_update()\n\tend)\nend\n\nfunction BeamBetween:_disable()\n\tself._beam.Enabled = false\n\tself._isEnabled = false\n\n\tif self._heartbeatConnection then\n\t\tself._heartbeatConnection:Disconnect()\n\tend\nend\n\nfunction BeamBetween:setEnabled(isEnabled: boolean)\n\tif isEnabled == self._isEnabled then\n\t\treturn\n\tend\n\n\tif isEnabled then\n\t\tself:_enable()\n\telse\n\t\tself:_disable()\n\tend\nend\n\nfunction BeamBetween:_update()\n\tself._attachment0.WorldCFrame = CFrame.new(self._attachment0.WorldPosition, self._attachment1.WorldPosition)\n\t\t* CFrame.Angles(0, 0, math.pi / 2)\n\tself._attachment1.WorldCFrame = CFrame.new(self._attachment1.WorldPosition, self._attachment0.WorldPosition)\n\t\t* CFrame.Angles(0, 0, -math.pi / 2)\nend\n\nfunction BeamBetween:destroy()\n\tif self._heartbeatConnection then\n\t\tself._heartbeatConnection:Disconnect()\n\tend\n\n\tself._beam:Destroy()\n\tself._attachment0:Destroy()\n\tself._attachment1:Destroy()\nend\n\nreturn BeamBetween\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.BeamBetween.BeamBetween"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.BeamBetween` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.BeamBetween",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.BeamBetween.Demo"
+      }
+    },
+    {
+      "id": "s5-folder-instances",
+      "type": "scripted",
+      "body": "Add a Folder `Instances` under `Workspace.BeamBetween.Demo` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.BeamBetween.Demo",
+        "props": {
+          "Name": "Instances"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.BeamBetween.Demo.Instances"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.BeamBetween.Demo`.",
+      "target": {
+        "path": "Workspace.BeamBetween.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tGiven two attachments and a beam prefab, this class continuously orients duplicates of the attachments to face each other so that the beam remains straight.\n\tAlso provides an API to enable/disable the beam and its orientation updates.\n--]]\n\nlocal BeamBetween = require(script.Parent.Parent.BeamBetween)\n\nlocal Instances = script.Parent.Instances\nlocal beam = Instances.Beam\nlocal swingingPart1 = Instances:WaitForChild(\"SwingingPart1\")\nlocal swingingPart2 = Instances:WaitForChild(\"SwingingPart2\")\nlocal attachment0 = swingingPart1.Part.BeamAttachment\nlocal attachment1 = swingingPart2.Part.BeamAttachment\n\n-- Create an instance of BeamBetween\nlocal beamBetween = BeamBetween.new(attachment0, attachment1, beam)\n\n-- Toggle enabling the beam in a loop\nwhile true do\n\tbeamBetween.setEnabled(beamBetween, true)\n\ttask.wait(3)\n\tbeamBetween.setEnabled(beamBetween, false)\n\ttask.wait(3)\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.BeamBetween.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.BeamBetween` in the Explorer to see the assembled result."
+    }
+  ]
+}

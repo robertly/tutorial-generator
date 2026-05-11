@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "play-smoke-puff",
+  "title": "Play Smoke Puff",
+  "goal": "Plays a particle animation of a puff of smoke at the location, volume, and size of a given part.",
+  "tags": [
+    "Visual",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Plays a particle animation of a puff of smoke at the location, volume, and size of a given part.\n\nThis sample was ported from `solutions-samples/play-smoke-puff`. Every step is deterministic \u2014 watch the components assemble under `Workspace.PlaySmokePuff`."
+    },
+    {
+      "id": "s2-folder-playsmokepuff",
+      "type": "scripted",
+      "body": "Add a Folder `PlaySmokePuff` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "PlaySmokePuff"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PlaySmokePuff"
+      }
+    },
+    {
+      "id": "s3-playsmokepuff",
+      "type": "codeEdit",
+      "body": "Add `playSmokePuff` (ModuleScript) under `Workspace.PlaySmokePuff`.",
+      "target": {
+        "path": "Workspace.PlaySmokePuff.playSmokePuff",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tPlays a particle animation of a puff of smoke at the location, volume, and size of a given part.\n--]]\n\nlocal Workspace = game:GetService(\"Workspace\")\n\nlocal particlePrefab: ParticleEmitter = script.SmokePuff\n\nlocal NUM_SMOKE_PARTICLES_PER_RADIUS_STUD = 2\nlocal BASE_PARTICLE_SIZE_PER_RADIUS_STUD = 0.2\nlocal END_PARTICLE_SIZE_MULTIPLIER = 2\n\nlocal function playSmokePuff(parent: BasePart)\n\t-- Clone the parent so the particles stay in the same place as when this function is called,\n\t-- even if the parent gets moved\n\tlocal dummyParent = parent:Clone()\n\tdummyParent.Anchored = true\n\tdummyParent:ClearAllChildren()\n\tdummyParent.CanCollide = false\n\tdummyParent.CanQuery = false\n\tdummyParent.Transparency = 1\n\n\tlocal particles = particlePrefab:Clone()\n\tparticles.Parent = dummyParent\n\tdummyParent.Parent = Workspace\n\n\tlocal radius = parent.Size.Magnitude / 2\n\tlocal numSmokeParticles = math.ceil(radius * NUM_SMOKE_PARTICLES_PER_RADIUS_STUD)\n\tlocal baseParticleSize = math.ceil(radius * BASE_PARTICLE_SIZE_PER_RADIUS_STUD)\n\tlocal particleSizeSequence = NumberSequence.new(baseParticleSize, baseParticleSize * END_PARTICLE_SIZE_MULTIPLIER)\n\tparticles.Size = particleSizeSequence\n\tparticles:Emit(numSmokeParticles)\n\n\ttask.delay(particles.Lifetime.Max, function()\n\t\tdummyParent:Destroy()\n\tend)\n\n\treturn particles\nend\n\nreturn playSmokePuff\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PlaySmokePuff.playSmokePuff"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.PlaySmokePuff` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.PlaySmokePuff",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PlaySmokePuff.Demo"
+      }
+    },
+    {
+      "id": "s5-clone-smokepuffparts",
+      "type": "scripted",
+      "body": "Clone the bundled `SmokePuffParts` instance tree into `Workspace.PlaySmokePuff.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.play-smoke-puff.SmokePuffParts",
+        "parent": "Workspace.PlaySmokePuff.Demo",
+        "name": "SmokePuffParts"
+      },
+      "focus": {
+        "selection": "Workspace.PlaySmokePuff.Demo.SmokePuffParts"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.PlaySmokePuff.Demo`.",
+      "target": {
+        "path": "Workspace.PlaySmokePuff.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tPlays a particle animation of a puff of smoke at the location, volume, and size of a given part.\n--]]\n\nlocal playSmokePuff = require(script.Parent.Parent.playSmokePuff)\n\nlocal smokePuffParts = script.Parent.SmokePuffParts\n\nwhile true do\n\tfor _, part in pairs(smokePuffParts:GetChildren()) do\n\t\tplaySmokePuff(part)\n\t\ttask.wait(1)\n\tend\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PlaySmokePuff.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.PlaySmokePuff` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.play-smoke-puff.SmokePuffParts",
+      "name": "SmokePuffParts",
+      "description": "Bundled instance tree from solutions-samples/play-smoke-puff."
+    }
+  ]
+}

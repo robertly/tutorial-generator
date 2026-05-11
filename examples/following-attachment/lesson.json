@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "following-attachment",
+  "title": "Model Following a Player",
+  "goal": "The FollowingAttachment module creates an attachment that trails on the ground at some max distance behind a player's character.",
+  "tags": [
+    "Player & Character",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "The FollowingAttachment module creates an attachment that trails on the ground at some max distance behind a player's character.\n\nDemoScript uses constraints to align a rock part's position and orientation with the attachment such that the rock follows each player's character.\n\nThe attachment stops updating and the rock is destroyed when the character dies.\n\nThis sample was ported from `solutions-samples/following-attachment`. Every step is deterministic \u2014 watch the components assemble under `Workspace.FollowingAttachment`."
+    },
+    {
+      "id": "s2-folder-followingattachment",
+      "type": "scripted",
+      "body": "Add a Folder `FollowingAttachment` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "FollowingAttachment"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.FollowingAttachment"
+      }
+    },
+    {
+      "id": "s3-followingattachment",
+      "type": "codeEdit",
+      "body": "Add `FollowingAttachment` (ModuleScript) under `Workspace.FollowingAttachment`.",
+      "target": {
+        "path": "Workspace.FollowingAttachment.FollowingAttachment",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--[[\n\tCreates an attachment that trails on the ground at some max distance\n\tbehind a player's character.\n\n\tThis attachment can be used to position something that follows a character.\n\tThe attachment stops updating when the character dies, at which point this\n\tclass should be\tdestroyed by its creator.\n--]]\n\nlocal RunService = game:GetService(\"RunService\")\nlocal Workspace = game:GetService(\"Workspace\")\n\nexport type FollowingAttachmentProperties = {\n\tmaxFollowDistance: number, -- Max distance the attachment will follow the character at\n\tverticalRayOffset: number, -- Distance above HumanoidRootPart to begin raycasting downward in studs\n\tdownVectorDistance: number, -- Distance to cast downward in studs\n\traycastParams: RaycastParams, -- RaycastParams to use during the downward raycasts\n}\n\nlocal FollowingAttachment = {}\nFollowingAttachment.__index = FollowingAttachment\n\nlocal function isCharacterLoaded(player: Player): boolean\n\treturn player and player.Character and player.Character:IsDescendantOf(Workspace)\nend\n\nfunction FollowingAttachment.new(player: Player, properties: FollowingAttachmentProperties)\n\tlocal self = {\n\t\t_player = player,\n\t\t_positionAttachment = Instance.new(\"Attachment\"),\n\t}\n\n\tsetmetatable(self, FollowingAttachment)\n\tself:_setup(properties)\n\n\treturn self\nend\n\nfunction FollowingAttachment:_setup(properties: FollowingAttachmentProperties)\n\tself:_createAttachment(properties.maxFollowDistance)\n\tself:_startUpdatingAttachment(self._player.Character, properties)\nend\n\nfunction FollowingAttachment:_createAttachment(maxFollowDistance: number)\n\tlocal character = self._player.Character\n\tlocal primaryPart = character.PrimaryPart\n\tlocal characterCFrame = primaryPart.CFrame\n\n\tlocal beginningOffsetCFrame = CFrame.new(0, 0, maxFollowDistance)\n\tlocal beginningPosition = (characterCFrame * beginningOffsetCFrame).Position\n\n\tlocal positionAttachment = self._positionAttachment\n\tpositionAttachment.Name = \"FollowingAttachment_\" .. character.Name\n\tpositionAttachment.WorldPosition = beginningPosition\n\tpositionAttachment.Parent = Workspace.Terrain\nend\n\nfunction FollowingAttachment:getAttachment(): Attachment\n\treturn self._positionAttachment\nend\n\nfunction FollowingAttachment:stopUpdatingAttachment()\n\tlocal heartbeatConnection = self._heartbeatConnection\n\tif heartbeatConnection then\n\t\theartbeatConnection:Disconnect()\n\tend\nend\n\nfunction FollowingAttachment:_startUpdatingAttachment(character: Model, properties: FollowingAttachmentProperties)\n\tlocal verticalRayOffsetVector = Vector3.yAxis * properties.verticalRayOffset\n\tlocal downVector = Vector3.yAxis * -properties.downVectorDistance\n\tlocal attachment = self._positionAttachment\n\n\tlocal heartbeatConnection = RunService.Heartbeat:Connect(function()\n\t\t-- Check if a character is not longer loaded. This could still run for a frame or two after\n\t\t-- it dies due to deferred events. Doesn't hurt to call stopUpdatingAttachment() more than once.\n\t\tif not isCharacterLoaded(self._player) then\n\t\t\tself:stopUpdatingAttachment()\n\t\t\treturn\n\t\tend\n\n\t\tlocal primaryPart = character.PrimaryPart\n\t\tif primaryPart then\n\t\t\tlocal primaryPartPosition = primaryPart.Position\n\n\t\t\tlocal footRayResult =\n\t\t\t\tWorkspace:Raycast(primaryPartPosition + verticalRayOffsetVector, downVector, properties.raycastParams)\n\n\t\t\tlocal characterPosition = if footRayResult then footRayResult.Position else primaryPartPosition\n\n\t\t\tlocal vectorToCharacter: Vector3 = characterPosition - attachment.WorldPosition\n\t\t\tlocal distanceToCharacter = vectorToCharacter.Magnitude\n\t\t\tlocal distanceBeyondMaximum = distanceToCharacter - properties.maxFollowDistance\n\n\t\t\tif distanceBeyondMaximum > 0 then\n\t\t\t\tlocal newPosition = attachment.WorldPosition + vectorToCharacter.Unit * distanceBeyondMaximum\n\t\t\t\tlocal normal\n\n\t\t\t\tlocal raycastResult =\n\t\t\t\t\tWorkspace:Raycast(newPosition + verticalRayOffsetVector, downVector, properties.raycastParams)\n\n\t\t\t\tif raycastResult then\n\t\t\t\t\tnewPosition = raycastResult.Position\n\t\t\t\t\tnormal = raycastResult.Normal\n\t\t\t\tend\n\n\t\t\t\tattachment.WorldCFrame = CFrame.lookAt(newPosition, characterPosition, normal or Vector3.yAxis)\n\t\t\tend\n\t\tend\n\tend)\n\n\tself._heartbeatConnection = heartbeatConnection\nend\n\nfunction FollowingAttachment:destroy()\n\tself:stopUpdatingAttachment()\n\n\tself._positionAttachment:Destroy()\nend\n\nreturn FollowingAttachment\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.FollowingAttachment.FollowingAttachment"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.FollowingAttachment` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.FollowingAttachment",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.FollowingAttachment.Demo"
+      }
+    },
+    {
+      "id": "s5-clone-rock",
+      "type": "scripted",
+      "body": "Clone the bundled `Rock` instance tree into `Workspace.FollowingAttachment.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.following-attachment.Rock",
+        "parent": "Workspace.FollowingAttachment.Demo",
+        "name": "Rock"
+      },
+      "focus": {
+        "selection": "Workspace.FollowingAttachment.Demo.Rock"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.FollowingAttachment.Demo`.",
+      "target": {
+        "path": "Workspace.FollowingAttachment.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tThe FollowingAttachment module creates an attachment that trails on the ground at some max distance behind a player's character.\n\tDemoScript uses constraints to align a rock's position and orientation with the attachment such that the rock follows each player's character.\n\tThe attachment stops updating and the rock model is destroyed when the character dies.\n--]]\n\nlocal Players = game:GetService(\"Players\")\nlocal Workspace = game:GetService(\"Workspace\")\n\nlocal FollowingAttachment = require(script.Parent.Parent.FollowingAttachment)\nlocal rockTemplate = script.Parent.Rock\nrockTemplate.Parent = nil\n\nlocal followingAttachmentProperties: FollowingAttachment.FollowingAttachmentProperties = {\n\tmaxFollowDistance = 10,\n\tverticalRayOffset = 0,\n\tdownVectorDistance = 0,\n\traycastParams = RaycastParams.new(),\n}\n\nlocal function attachModel(player: Player, followingAttachment)\n\tlocal followAttachment = followingAttachment:getAttachment()\n\n\tlocal rock = rockTemplate:Clone()\n\tlocal rockAttachment = rock.Attachment\n\n\t-- align the position and orientation of the rock's attachment with the FollowAttachment\n\tlocal alignPosition = Instance.new(\"AlignPosition\")\n\talignPosition.Attachment0 = rockAttachment\n\talignPosition.Attachment1 = followAttachment\n\talignPosition.MaxForce = 100000\n\talignPosition.Responsiveness = 25\n\talignPosition.Parent = rock\n\n\tlocal alignOrientation = Instance.new(\"AlignOrientation\")\n\talignOrientation.Attachment0 = rockAttachment\n\talignOrientation.Attachment1 = followAttachment\n\talignOrientation.MaxTorque = 100000\n\talignOrientation.Responsiveness = 25\n\talignOrientation.Parent = rock\n\n\trock:PivotTo(followAttachment.CFrame)\n\t-- parent to the FollowAttachment to ensure it is destroyed with the attachment\n\trock.Parent = followAttachment\n\trock:SetNetworkOwner(player)\nend\n\nlocal function onPlayerAdded(player: Player)\n\tlocal function onCharacterAdded(character: Model)\n\t\t-- wait for Character to exist in workspace, then create FollowAttachment\n\t\tif not character:IsDescendantOf(Workspace) then\n\t\t\tcharacter.AncestryChanged:Wait()\n\t\tend\n\t\tlocal followingAttachment = FollowingAttachment.new(player, followingAttachmentProperties)\n\n\t\t-- destroy the FollowAttachment when the player dies\n\t\tlocal function onDied()\n\t\t\tfollowingAttachment:destroy()\n\t\tend\n\n\t\tlocal humanoid = character:WaitForChild(\"Humanoid\")\n\t\thumanoid.Died:Connect(onDied)\n\n\t\tattachModel(player, followingAttachment)\n\tend\n\tplayer.CharacterAdded:Connect(onCharacterAdded)\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.FollowingAttachment.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.FollowingAttachment` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.following-attachment.Rock",
+      "name": "Rock",
+      "description": "Bundled instance tree from solutions-samples/following-attachment."
+    }
+  ]
+}

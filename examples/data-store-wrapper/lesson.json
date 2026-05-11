@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "data-store-wrapper",
+  "title": "Data Store Retries",
+  "goal": "DataStoreWrapper provides a retry mechanism for Data Stores that respects the order in which requests were made.",
+  "tags": [
+    "Cloud Services",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "DataStoreWrapper provides a retry mechanism for Data Stores that respects the order in which requests were made.\n\nThis sample was ported from `solutions-samples/data-store-wrapper`. Every step is deterministic \u2014 watch the components assemble under `Workspace.DataStoreWrapper`."
+    },
+    {
+      "id": "s2-folder-datastorewrapper",
+      "type": "scripted",
+      "body": "Add a Folder `DataStoreWrapper` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "DataStoreWrapper"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.DataStoreWrapper"
+      }
+    },
+    {
+      "id": "s3-datastorewrapper",
+      "type": "codeEdit",
+      "body": "Add `DataStoreWrapper` (ModuleScript) under `Workspace.DataStoreWrapper`.",
+      "target": {
+        "path": "Workspace.DataStoreWrapper.DataStoreWrapper",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tWrapper for a DataStore that implements automatic retries for failed requests.\n\n\tRequests to the same key are queued and scheduled with a ThreadQueue (including retries) to ensure they are\n\tprocessed in order. This avoids a common pitfall in DataStore retry implementations where it is possible for a\n\tretry for an older request to happen after a newer request resulting in outdated data being saved.\n\n\tDataStoreWrapper request methods yield until the request (and its retries) have been completed.\n--]]\n\nlocal DataStoreService = game:GetService(\"DataStoreService\")\n\nlocal retryAsync = require(script.retryAsync)\nlocal ThreadQueue = require(script.ThreadQueue)\n\nlocal RETRY_CONSTANT_SECONDS = 0\nlocal RETRY_EXPONENT_SECONDS = 0\nlocal MAX_ATTEMPTS = 1\n\ntype TransformCallback = (any, DataStoreKeyInfo) -> (any, { number }?, { [string]: any }?)\n\nlocal dataStoreOptions = Instance.new(\"DataStoreOptions\")\ndataStoreOptions:SetExperimentalFeatures({ v2 = true })\n\nlocal DataStoreWrapper = {}\nDataStoreWrapper.__index = DataStoreWrapper\n\nfunction DataStoreWrapper.new(name: string, maxAttempts: number?, retryConstant: number?, retryExponent: number?)\n\tlocal self = {\n\t\t_name = name,\n\t\t_maxAttempts = maxAttempts or MAX_ATTEMPTS,\n\t\t_retryConstant = retryConstant or RETRY_CONSTANT_SECONDS,\n\t\t_retryExponent = retryExponent or RETRY_EXPONENT_SECONDS,\n\t\t_keyQueues = {},\n\t}\n\tsetmetatable(self, DataStoreWrapper)\n\n\treturn self\nend\n\nfunction DataStoreWrapper:_attemptAsync(\n\tkey: string,\n\toperation: (dataStore: GlobalDataStore) -> nil,\n\toptionalRetryFunctionHandler: retryAsync.FunctionHandler?\n): (boolean, ...any)\n\t-- As we will be retrying requests that fail, it's important we have a queue mechanism to ensure\n\t-- each request is processed in order, to avoid race conditions (ie. request 2 completing while\n\t-- request 1 is waiting to retry). ThreadQueue:submitAsync will yield until the task has\n\t-- completed, allowing us to use DataStoreWrapper's API asynchronously\n\tlocal queue = self._keyQueues[key] :: typeof(ThreadQueue.new())\n\n\tif not queue then\n\t\tqueue = ThreadQueue.new() :: typeof(ThreadQueue.new())\n\t\tself._keyQueues[key] = queue\n\tend\n\n\t-- Capture the tuple values in a table\n\tlocal queueReturnValues = {\n\t\tqueue:submitAsync(function()\n\t\t\treturn self:_onQueuePop(operation, optionalRetryFunctionHandler)\n\t\tend),\n\t}\n\n\t-- Remove empty queues to prevent memory leaks\n\tif queue:getLength() == 0 then\n\t\tself._keyQueues[key] = nil\n\tend\n\n\t-- Return the success, result values from onQueuePop\n\treturn table.unpack(queueReturnValues)\nend\n\nfunction DataStoreWrapper:_onQueuePop(\n\toperation: (dataStore: GlobalDataStore) -> nil,\n\toptionalRetryFunctionHandler: retryAsync.FunctionHandler?\n): ...any\n\t-- Capture the tuple values in a table\n\t-- We are using retryAsync here to retry failed calls with an exponential backoff\n\tlocal attemptReturnValues = {\n\t\tretryAsync(function()\n\t\t\tlocal dataStore = self:getDataStore()\n\n\t\t\treturn operation(dataStore)\n\t\tend, self._maxAttempts, self._retryConstant, self._retryExponent, optionalRetryFunctionHandler),\n\t}\n\n\t-- retryAsync returns follow the protected call pattern (success, ...)\n\tlocal attemptSuccess = table.remove(attemptReturnValues, 1) :: boolean\n\n\t-- ThreadQueue calls tasks with pcall, so rather than returning the success, result\n\t-- pattern here we will throw when success is false\n\tif not attemptSuccess then\n\t\t-- Attempt failed, bubble the error up through the ThreadQueue\n\t\tlocal errorMessage = attemptReturnValues[1]\n\t\terror(errorMessage)\n\tend\n\n\t-- Attempt succeeded, return all values in the result tuple\n\treturn table.unpack(attemptReturnValues)\nend\n\nfunction DataStoreWrapper:getAsync(\n\tkey: string,\n\toptionalRetryFunctionHandler: retryAsync.FunctionHandler?\n): (boolean, any | string, DataStoreKeyInfo?)\n\treturn self:_attemptAsync(key, function(dataStore: GlobalDataStore)\n\t\treturn dataStore:GetAsync(key)\n\tend, optionalRetryFunctionHandler)\nend\n\nfunction DataStoreWrapper:setAsync(\n\tkey: string,\n\tvalue: any,\n\tuserIds: { number }?,\n\toptions: DataStoreSetOptions?,\n\toptionalRetryFunctionHandler: retryAsync.FunctionHandler?\n): (boolean, string?)\n\treturn self:_attemptAsync(key, function(dataStore: GlobalDataStore)\n\t\treturn dataStore:SetAsync(key, value, userIds, options)\n\tend, optionalRetryFunctionHandler)\nend\n\nfunction DataStoreWrapper:removeAsync(\n\tkey: string,\n\toptionalRetryFunctionHandler: retryAsync.FunctionHandler?\n): (boolean, any | string, DataStoreKeyInfo?)\n\treturn self:_attemptAsync(key, function(dataStore: GlobalDataStore)\n\t\treturn dataStore:RemoveAsync(key)\n\tend, optionalRetryFunctionHandler)\nend\n\nfunction DataStoreWrapper:updateAsync(\n\tkey: string,\n\ttransformFunction: TransformCallback,\n\toptionalRetryFunctionHandler: retryAsync.FunctionHandler?\n): (boolean, any | string, DataStoreKeyInfo?)\n\treturn self:_attemptAsync(key, function(dataStore: GlobalDataStore)\n\t\treturn dataStore:UpdateAsync(key, transformFunction)\n\tend, optionalRetryFunctionHandler)\nend\n\nfunction DataStoreWrapper:getDataStore(): GlobalDataStore\n\treturn DataStoreService:GetDataStore(self._name, nil, dataStoreOptions)\nend\n\nfunction DataStoreWrapper:getQueueLength(key: string): number\n\tlocal length = 0\n\tlocal threadQueue = self._keyQueues[key]\n\n\tif threadQueue then\n\t\tlength = threadQueue:getLength()\n\tend\n\n\treturn length\nend\n\nfunction DataStoreWrapper:areAllQueuesEmpty(): boolean\n\tfor _, threadQueue in pairs(self._keyQueues) do\n\t\tif threadQueue:getLength() > 0 then\n\t\t\treturn false\n\t\tend\n\tend\n\n\treturn true\nend\n\n-- Code bound to game closure (game:BindToClose) has a limited duration in which to run before timing out.\n-- The skipAllQueuesToLastEnqueued method can be used to skip all threadQueues to the most\n-- recent request so time isn't wasted on out of date requests. Note, this method will discard\n-- the yielded threads stored in the threadQueue meaning DataStoreWrapper calls for these\n-- outdated requests will not return. For this reason, only use skipAllQueuesToLastEnqueued during\n-- game closure.\nfunction DataStoreWrapper:skipAllQueuesToLastEnqueued()\n\tfor _, threadQueue in pairs(self._keyQueues) do\n\t\tthreadQueue:skipToLastEnqueued()\n\tend\nend\n\nreturn DataStoreWrapper\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.DataStoreWrapper.DataStoreWrapper"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.DataStoreWrapper` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.DataStoreWrapper",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.DataStoreWrapper.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.DataStoreWrapper.Demo`.",
+      "target": {
+        "path": "Workspace.DataStoreWrapper.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tDataStoreWrapper attempts to address common pitfalls in the creation of data saving systems.\n\tAll requests are placed in a queue and completed in order, to prevent data from being overwritten\n\tif multiple requests are made at the same time.\n--]]\n\nlocal DataStoreWrapper = require(script.Parent.Parent.DataStoreWrapper)\n\nlocal name = \"DemoDataStore\"\nlocal retryMaxAttempts = 3\nlocal retryPauseConstant = 2\nlocal retryPauseExponentBase = 2\n\nlocal key = \"DemoKey\"\n\n-- Create a new DataStoreWrapper for accessing DataStore\nlocal myDataStoreWrapper = DataStoreWrapper.new(name, retryMaxAttempts, retryPauseConstant, retryPauseExponentBase)\n\nprint(\"Setting key...\")\n-- DataStoreWrapper returns whether the attempt was successful and the result of the operation or an error message\nlocal setSuccess, setResult = myDataStoreWrapper:setAsync(key, \"Some value\")\nif setSuccess then\n\tprint(\"Set success!\")\nelse\n\tprint(string.format(\"Set failed because: %s\", setResult))\nend\n\nprint(\"Getting key...\")\nlocal getSuccess, getResult = myDataStoreWrapper:getAsync(key)\nif getSuccess then\n\tprint(string.format(\"Get success! Value is: %s\", getResult))\nelse\n\tprint(string.format(\"Get failed because: %s\", getResult))\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.DataStoreWrapper.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.DataStoreWrapper` in the Explorer to see the assembled result."
+    }
+  ]
+}

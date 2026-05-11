@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "id": "admin-commands",
+  "title": "Admin Commands",
+  "goal": "Demonstrates an admin command system using TextChatCommands. Command functions are stored in the Commands module and have an included permission level. Permission levels are determined from group rankings or a manual override set in the Admins module.",
+  "tags": [
+    "General",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates an admin command system using TextChatCommands. Command functions are stored in the Commands module and have an included permission level. Permission levels are determined from group rankings or a manual override set in the Admins module.\n\nThis sample was ported from `solutions-samples/admin-commands`. Every step is deterministic \u2014 watch the components assemble under `Workspace.Admin_Commands`."
+    },
+    {
+      "id": "s2-folder-admin-commands",
+      "type": "scripted",
+      "body": "Add a Folder `Admin_Commands` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "Admin_Commands"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Admin_Commands"
+      }
+    },
+    {
+      "id": "s3-admincommands",
+      "type": "codeEdit",
+      "body": "Add `AdminCommands` (ModuleScript) under `Workspace.Admin_Commands`.",
+      "target": {
+        "path": "Workspace.Admin_Commands.AdminCommands",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal Players = game:GetService(\"Players\")\nlocal TextChatService = game:GetService(\"TextChatService\")\n\nassert(\n\tTextChatService.ChatVersion == Enum.ChatVersion.TextChatService,\n\t\"TextChatService.ChatVersion must be set to 'TextChatService'\"\n)\n\nlocal Commands = require(script.Commands)\nlocal Admins = require(script.Admins)\n\nlocal AdminCommands = {\n\t_initialized = false,\n\t_permissionCache = {},\n}\n\nfunction AdminCommands.getPermissionLevelAsync(player: Player): number\n\tif AdminCommands._permissionCache[player] then\n\t\treturn AdminCommands._permissionCache[player]\n\tend\n\n\tlocal permissionLevel = 0\n\tif Admins.UserIds[player.UserId] then\n\t\tpermissionLevel = Admins.UserIds[player.UserId]\n\telse\n\t\tpermissionLevel = player:GetRankInGroup(Admins.GroupId)\n\tend\n\n\tAdminCommands._permissionCache[player] = permissionLevel\n\treturn permissionLevel\nend\n\nfunction AdminCommands._initialize()\n\tassert(not AdminCommands._initialized, \"Module already initialized\")\n\n\t-- Listen to PlayerRemoving to make sure the permission cache is cleaned when a player leaves\n\tPlayers.PlayerRemoving:Connect(function(player)\n\t\tif AdminCommands._permissionCache[player] then\n\t\t\tAdminCommands._permissionCache[player] = nil\n\t\tend\n\tend)\n\n\t-- Create a new folder in TextChatService to store commands and keep things organized\n\tlocal commandsFolder = Instance.new(\"Folder\")\n\tcommandsFolder.Name = \"AdminCommands\"\n\tcommandsFolder.Parent = TextChatService\n\n\t-- Create a new TextChatCommand for each command defined in the Commands module\n\tfor _, commandInfo in Commands.List do\n\t\tlocal textChatCommand = Instance.new(\"TextChatCommand\")\n\t\ttextChatCommand.Name = commandInfo.PrimaryAlias\n\t\t-- Set the primary and secondary aliases with the prefix set in the Commands module\n\t\ttextChatCommand.PrimaryAlias = Commands.Prefix .. commandInfo.PrimaryAlias\n\t\tif commandInfo.SecondaryAlias then\n\t\t\ttextChatCommand.SecondaryAlias = Commands.Prefix .. commandInfo.SecondaryAlias\n\t\tend\n\t\ttextChatCommand.Parent = commandsFolder\n\n\t\ttextChatCommand.Triggered:Connect(function(textSource, message)\n\t\t\t-- Find the player object of the speaker\n\t\t\tlocal player = Players:GetPlayerByUserId(textSource.UserId)\n\t\t\tassert(player ~= nil, string.format(\"No player with UserId: %d\", textSource.UserId))\n\n\t\t\t-- Make sure the player has permission to use this command\n\t\t\tlocal playerPermissionLevel = AdminCommands.getPermissionLevelAsync(player)\n\t\t\tif playerPermissionLevel >= commandInfo.PermissionLevel then\n\t\t\t\t-- Clean up whitespace in the message so that extra spaces do not cause empty strings in the split\n\t\t\t\tlocal cleanMessage = string.gsub(message, \"%s+\", \" \")\n\t\t\t\t-- Split up the message into individual words\n\t\t\t\tlocal words = string.split(cleanMessage, \" \")\n\t\t\t\t-- The first word is the command, select all words except the first to pass in as arguments\n\t\t\t\tlocal args = table.move(words, 2, #words, 1, {})\n\n\t\t\t\t-- Call the set command Function, passing in the player who triggered it and any additional words after the command\n\t\t\t\tcommandInfo.Function(player, args)\n\t\t\tend\n\t\tend)\n\tend\n\n\tAdminCommands._initialized = true\nend\n\nAdminCommands._initialize()\n\nreturn AdminCommands\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Admin_Commands.AdminCommands"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-admincommands",
+      "type": "scripted",
+      "body": "Add a Folder `AdminCommands` under `Workspace.Admin_Commands` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.Admin_Commands",
+        "props": {
+          "Name": "AdminCommands"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Admin_Commands.AdminCommands"
+      }
+    },
+    {
+      "id": "s5-adm",
+      "type": "codeEdit",
+      "body": "Add `Adm` (ModuleScript) under `Workspace.Admin_Commands.AdminCommands`.",
+      "target": {
+        "path": "Workspace.Admin_Commands.AdminCommands.Adm",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "local Admins = {\n\t-- Users in this group will have their permission level set to their current rank in the group\n\tGroupId = -1,\n\t-- Ranks set here for player UserIds will override ranks from the GroupId\n\tUserIds = {\n\t\t-- [game.CreatorId] = 255,\n\t\t-- [123456789] = 10,\n\t},\n}\n\nreturn Admins\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Admin_Commands.AdminCommands.Adm"
+        }
+      }
+    },
+    {
+      "id": "s6-command",
+      "type": "codeEdit",
+      "body": "Add `Command` (ModuleScript) under `Workspace.Admin_Commands.AdminCommands`.",
+      "target": {
+        "path": "Workspace.Admin_Commands.AdminCommands.Command",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal Workspace = game:GetService(\"Workspace\")\n\nexport type Command = {\n\tPrimaryAlias: string,\n\tSecondaryAlias: string?,\n\tPermissionLevel: number, -- 0-255\n\tFunction: (player: Player, args: { string }) -> (),\n}\n\nlocal Commands = {\n\tPrefix = \"/\",\n\tList = {\n\t\t{\n\t\t\tPrimaryAlias = \"gravity\",\n\t\t\tSecondaryAlias = \"grav\",\n\t\t\tPermissionLevel = 0,\n\t\t\tFunction = function(player: Player, args: { string })\n\t\t\t\tlocal gravity = args[1]\n\t\t\t\tif gravity and tonumber(gravity) then\n\t\t\t\t\tWorkspace.Gravity = tonumber(gravity) :: number\n\t\t\t\tend\n\t\t\tend,\n\t\t},\n\t\t{\n\t\t\tPrimaryAlias = \"walkspeed\",\n\t\t\tSecondaryAlias = \"speed\",\n\t\t\tPermissionLevel = 0,\n\t\t\tFunction = function(player: Player, args: { string })\n\t\t\t\tlocal character = player.Character\n\t\t\t\tif character then\n\t\t\t\t\tlocal humanoid = character:FindFirstChildOfClass(\"Humanoid\")\n\t\t\t\t\tif humanoid then\n\t\t\t\t\t\tlocal speed = args[1]\n\t\t\t\t\t\tif speed and tonumber(speed) then\n\t\t\t\t\t\t\thumanoid.WalkSpeed = tonumber(speed) :: number\n\t\t\t\t\t\tend\n\t\t\t\t\tend\n\t\t\t\tend\n\t\t\tend,\n\t\t},\n\t\t{\n\t\t\tPrimaryAlias = \"explode\",\n\t\t\tSecondaryAlias = nil,\n\t\t\tPermissionLevel = 0,\n\t\t\tFunction = function(player: Player, args: { string })\n\t\t\t\tlocal character = player.Character\n\t\t\t\tif character then\n\t\t\t\t\tlocal primaryPart = character.PrimaryPart\n\t\t\t\t\tif primaryPart then\n\t\t\t\t\t\tlocal explosion = Instance.new(\"Explosion\")\n\t\t\t\t\t\texplosion.Position = primaryPart.Position\n\t\t\t\t\t\texplosion.Parent = Workspace\n\t\t\t\t\tend\n\t\t\t\tend\n\t\t\tend,\n\t\t},\n\t} :: { Command },\n}\n\nreturn Commands\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Admin_Commands.AdminCommands.Command"
+        }
+      }
+    },
+    {
+      "id": "s7-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.Admin_Commands` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.Admin_Commands",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Admin_Commands.Demo"
+      }
+    },
+    {
+      "id": "s8-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.Admin_Commands.Demo`.",
+      "target": {
+        "path": "Workspace.Admin_Commands.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\n--[[\n\tDemonstrates an admin command system using TextChatCommands.\n\n\tCommand functions are stored in the Commands module and have an included permission level.\n\tPermission levels are determined from group rankings or a manual override set in the Admins module.\n--]]\n\nlocal Players = game:GetService(\"Players\")\nlocal AdminCommands = require(script.Parent.Parent.AdminCommands)\n\n-- Print out the permission level of each player who joins\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal permissionLevel = AdminCommands.getPermissionLevelAsync(player)\n\tprint(string.format(\"%s has a permission level of %d\", player.Name, permissionLevel))\nend)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Admin_Commands.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s9-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.Admin_Commands` in the Explorer to see the assembled result."
+    }
+  ]
+}

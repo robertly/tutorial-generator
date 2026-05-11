@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "id": "leader-election",
+  "title": "Leader Election",
+  "goal": "Demonstrates how to run a loop on a single server at once using MemoryStores. Useful for things like global matchmaking code that only need to run on one server at a time.",
+  "tags": [
+    "Cloud Services",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates how to run a loop on a single server at once using MemoryStores. Useful for things like global matchmaking code that only need to run on one server at a time.\n\nThis sample was ported from `solutions-samples/leader-election`. Every step is deterministic \u2014 watch the components assemble under `Workspace.LeaderElection`."
+    },
+    {
+      "id": "s2-folder-leaderelection",
+      "type": "scripted",
+      "body": "Add a Folder `LeaderElection` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "LeaderElection"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.LeaderElection"
+      }
+    },
+    {
+      "id": "s3-leaderelection",
+      "type": "codeEdit",
+      "body": "Add `LeaderElection` (ModuleScript) under `Workspace.LeaderElection`.",
+      "target": {
+        "path": "Workspace.LeaderElection.LeaderElection",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal Loop = require(script.Loop)\n\nlocal LeaderElection = {\n\t_loops = {} :: { [string]: any },\n}\n\nfunction LeaderElection.startLoop(id: string, interval: number, updateFunction: (number) -> ())\n\tassert(not LeaderElection._loops[id], string.format(\"Loop already registered with id: %s\", id))\n\n\tlocal loop = Loop.new(id, interval, updateFunction) :: any\n\tLeaderElection._loops[id] = loop\n\n\tloop:start()\nend\n\nreturn LeaderElection\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LeaderElection.LeaderElection"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-leaderelection",
+      "type": "scripted",
+      "body": "Add a Folder `LeaderElection` under `Workspace.LeaderElection` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.LeaderElection",
+        "props": {
+          "Name": "LeaderElection"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.LeaderElection.LeaderElection"
+      }
+    },
+    {
+      "id": "s5-loop",
+      "type": "codeEdit",
+      "body": "Add `Loop` (ModuleScript) under `Workspace.LeaderElection.LeaderElection`.",
+      "target": {
+        "path": "Workspace.LeaderElection.LeaderElection.Loop",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal MemoryStoreService = game:GetService(\"MemoryStoreService\")\n\nlocal retryAsync = require(script.Parent.retryAsync)\nlocal setSequentialInterval = require(script.Parent.setSequentialInterval)\n\nlocal TAKEOVER_INTERVAL_MULTIPLIER = 2\nlocal LEADER_EXPIRATION_MULTIPLIER = 2\n-- Key expiration is set to longer than leadership expiration so that delta times can be\n-- kept consistent if the leader server crashes\nlocal KEY_EXPIRATION_MULTIPLIER = 3\nlocal KEY = \"Info\"\n\nlocal UPDATE_ATTEMPTS = 3\nlocal UPDATE_RETRY_PAUSE_CONSTANT = 2\nlocal UPDATE_RETRY_PAUSE_EXPONENT_BASE = 2\n\nlocal LoopMode = {\n\tIdle = \"Idle\",\n\tUpdate = \"Update\",\n\tTakeover = \"Takeover\",\n}\n\ntype LeaderInfo = {\n\tLeader: string,\n\tLastUpdate: number,\n\tLeaderExpiration: number,\n}\n\nlocal Loop = {}\nLoop.__index = Loop\n\nfunction Loop.new(id: string, interval: number, updateFunction: (number) -> ())\n\tlocal self = {\n\t\tid = id,\n\t\t_started = false,\n\t\t_mode = LoopMode.Idle,\n\t\t_memoryStore = MemoryStoreService:GetSortedMap(string.format(\"Loop_%s\", id)),\n\t\t_updateInterval = interval,\n\t\t_takeoverInterval = interval * TAKEOVER_INTERVAL_MULTIPLIER,\n\t\t_leaderExpiration = interval * LEADER_EXPIRATION_MULTIPLIER,\n\t\t_keyExpiration = interval * KEY_EXPIRATION_MULTIPLIER,\n\t\t_updateFunction = updateFunction,\n\t\t_clearIntervalFunction = nil,\n\t}\n\n\tsetmetatable(self, Loop)\n\n\treturn self\nend\n\n-- Set a function to be called on an interval, taking into account the time it takes for the function to complete if it is Async\n-- Only one function can be set to be called at once\nfunction Loop:_setIntervalFunction(functionToCall: () -> (), interval: number)\n\tif self._clearIntervalFunction then\n\t\tself._clearIntervalFunction()\n\tend\n\n\tself._clearIntervalFunction = setSequentialInterval(functionToCall, interval)\nend\n\n-- Attempt to take over leadership of the loop\nfunction Loop:_attemptTakeoverAsync(): boolean\n\tlocal tookLeadership = false\n\n\tlocal success = pcall(function()\n\t\tself._memoryStore:UpdateAsync(KEY, function(oldInfo): LeaderInfo?\n\t\t\t-- When the same key is updated by multiple servers at once, this callback may be called multiple\n\t\t\t-- times in order to resolve correctly. Since we have a flag variable that was defined outside of\n\t\t\t-- this scope, we need to reset it at the start of each callback.\n\t\t\ttookLeadership = false\n\t\t\tlocal newInfo = oldInfo :: LeaderInfo?\n\t\t\tlocal now = DateTime.now().UnixTimestamp\n\n\t\t\tif newInfo then\n\t\t\t\tlocal isThisServerLeader = newInfo.Leader == game.JobId\n\t\t\t\tlocal isLeaderExpired = now > newInfo.LeaderExpiration\n\n\t\t\t\tif isThisServerLeader or isLeaderExpired then\n\t\t\t\t\t-- Leadership can expire in 3 cases:\n\t\t\t\t\t--   1. The server crashed and is no longer refreshing its expiration\n\t\t\t\t\t--   2. The server is getting MemoryStore API errors or being throttled\n\t\t\t\t\t--   3. The server shut down and released leadership, setting expiration to 0\n\t\t\t\t\t-- If the server fails to relinquish leadership for some reason, it can enter into the\n\t\t\t\t\t-- takeover loop while still retaining leadership in MemoryStore. In this case the\n\t\t\t\t\t-- server will attempt to take over leadership again.\n\t\t\t\t\tnewInfo.Leader = game.JobId\n\t\t\t\t\tnewInfo.LeaderExpiration = now + self._leaderExpiration\n\n\t\t\t\t\ttookLeadership = true\n\t\t\t\tend\n\t\t\telse\n\t\t\t\tnewInfo = {\n\t\t\t\t\tLeader = game.JobId,\n\t\t\t\t\tLastUpdate = now,\n\t\t\t\t\tLeaderExpiration = now + self._leaderExpiration,\n\t\t\t\t} :: LeaderInfo\n\n\t\t\t\ttookLeadership = true\n\t\t\tend\n\n\t\t\treturn if tookLeadership then newInfo else nil\n\t\tend, self._keyExpiration)\n\tend)\n\n\treturn success and tookLeadership\nend\n\n-- Attempt to run the Update function for the loop\nfunction Loop:_attemptUpdateAsync()\n\tlocal memoryStoreSuccess, lastUpdate = retryAsync(function()\n\t\tlocal oldUpdate: number? = nil\n\n\t\tself._memoryStore:UpdateAsync(KEY, function(oldInfo): LeaderInfo?\n\t\t\toldUpdate = nil\n\t\t\tlocal newInfo = oldInfo :: LeaderInfo?\n\t\t\tlocal now = DateTime.now().UnixTimestamp\n\n\t\t\tif newInfo and newInfo.Leader == game.JobId then\n\t\t\t\toldUpdate = newInfo.LastUpdate\n\t\t\t\tnewInfo.LastUpdate = now\n\t\t\t\tnewInfo.LeaderExpiration = now + self._leaderExpiration\n\n\t\t\t\treturn newInfo\n\t\t\telse\n\t\t\t\treturn nil\n\t\t\tend\n\t\tend, self._keyExpiration)\n\n\t\treturn oldUpdate\n\tend, UPDATE_ATTEMPTS, UPDATE_RETRY_PAUSE_CONSTANT, UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\n\tif memoryStoreSuccess and lastUpdate then\n\t\tlocal updateSuccess = retryAsync(function()\n\t\t\tlocal now = DateTime.now().UnixTimestamp\n\t\t\tself._updateFunction(now - lastUpdate)\n\t\tend, UPDATE_ATTEMPTS, UPDATE_RETRY_PAUSE_CONSTANT, UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\t\treturn updateSuccess\n\tend\n\n\treturn false\nend\n\n-- Release leadership of the loop, allowing another server to take control\nfunction Loop:_releaseLeadershipAsync()\n\tretryAsync(function()\n\t\tself._memoryStore:UpdateAsync(KEY, function(oldInfo): LeaderInfo?\n\t\t\tlocal newInfo = oldInfo :: LeaderInfo?\n\n\t\t\tif newInfo and newInfo.Leader == game.JobId then\n\t\t\t\tnewInfo.LeaderExpiration = 0\n\t\t\t\treturn newInfo\n\t\t\telse\n\t\t\t\treturn nil\n\t\t\tend\n\t\tend, self._keyExpiration)\n\tend, UPDATE_ATTEMPTS, UPDATE_RETRY_PAUSE_CONSTANT, UPDATE_RETRY_PAUSE_EXPONENT_BASE)\nend\n\nfunction Loop:_startTakeoverLoop()\n\tassert(self._mode ~= LoopMode.Takeover, string.format(\"Loop '%s' is already in takeover mode!\", self.id))\n\n\tself._mode = LoopMode.Takeover\n\tself:_setIntervalFunction(function()\n\t\tlocal success = self:_attemptTakeoverAsync()\n\t\tif success then\n\t\t\tself:_startUpdateLoop()\n\t\tend\n\tend, self._takeoverInterval)\nend\n\nfunction Loop:_startUpdateLoop()\n\tassert(self._mode ~= LoopMode.Update, string.format(\"Loop '%s' is already in update mode!\", self.id))\n\n\tself._mode = LoopMode.Update\n\tself:_setIntervalFunction(function()\n\t\tlocal success = self:_attemptUpdateAsync()\n\t\tif not success then\n\t\t\tself:_startTakeoverLoop()\n\t\tend\n\tend, self._updateInterval)\nend\n\nfunction Loop:start()\n\tassert(not self._started, \"Loop is already started!\")\n\tself._started = true\n\n\tgame:BindToClose(function()\n\t\t-- End the current interval loop so we don't try to take leadership while shutting down\n\t\tif self._clearIntervalFunction then\n\t\t\tself._clearIntervalFunction()\n\t\tend\n\n\t\t-- If the loop is currently in Update mode (i.e. this server is already the leader), release leadership\n\t\tif self._mode == LoopMode.Update then\n\t\t\tself:_releaseLeadershipAsync()\n\t\tend\n\tend)\n\n\t-- Start in Takeover mode\n\tself:_startTakeoverLoop()\nend\n\nreturn Loop\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LeaderElection.LeaderElection.Loop"
+        }
+      }
+    },
+    {
+      "id": "s6-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.LeaderElection` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.LeaderElection",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.LeaderElection.Demo"
+      }
+    },
+    {
+      "id": "s7-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.LeaderElection.Demo`.",
+      "target": {
+        "path": "Workspace.LeaderElection.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\n--[[\n\tDemonstrates using the LeaderElection module to have a single MessagingService message\n\tbroadcast to all servers once per 30 seconds. The server in charge prints out when it publishes a\n\tmessage and other servers print out when they receive it.\n--]]\n\nlocal HttpService = game:GetService(\"HttpService\")\nlocal MessagingService = game:GetService(\"MessagingService\")\n\nlocal LeaderElection = require(script.Parent.Parent.LeaderElection)\n\nlocal TOPIC = \"LeaderDemoTopic\"\n\nlocal function Update(deltaTime)\n\tlocal data = {\n\t\tserver = game.JobId,\n\t\tdeltaTime = deltaTime,\n\t}\n\n\tprint(string.format(\"Sending update from self '%s' with deltaTime: %d\", data.server, data.deltaTime))\n\n\tMessagingService:PublishAsync(TOPIC, HttpService:JSONEncode(data))\nend\n\nlocal success, result = pcall(function()\n\tMessagingService:SubscribeAsync(TOPIC, function(message)\n\t\tlocal data = HttpService:JSONDecode(message.Data)\n\n\t\tprint(string.format(\"Got message from leader '%s' with deltaTime: %d\", data.server, data.deltaTime))\n\tend)\nend)\n\nif not success then\n\twarn(string.format(\"Failed to subscribe to messaging topic because: %s\", result))\nend\n\nLeaderElection.startLoop(\"Demo\", 30, Update)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LeaderElection.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s8-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.LeaderElection` in the Explorer to see the assembled result."
+    }
+  ]
+}

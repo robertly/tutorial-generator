@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "load-animation-track",
+  "title": "Playing an Animation",
+  "goal": "The loadAnimationTrack function is used to load an animation on an Animator by providing an animation asset ID.",
+  "tags": [
+    "Animations",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "The loadAnimationTrack function is used to load an animation on an Animator by providing an animation asset ID.\n\nThis sample was ported from `solutions-samples/load-animation-track`. Every step is deterministic \u2014 watch the components assemble under `Workspace.Playing_an_Animation`."
+    },
+    {
+      "id": "s2-folder-playing-an-animation",
+      "type": "scripted",
+      "body": "Add a Folder `Playing_an_Animation` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "Playing_an_Animation"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Playing_an_Animation"
+      }
+    },
+    {
+      "id": "s3-loadanimationtrack",
+      "type": "codeEdit",
+      "body": "Add `loadAnimationTrack` (ModuleScript) under `Workspace.Playing_an_Animation`.",
+      "target": {
+        "path": "Workspace.Playing_an_Animation.loadAnimationTrack",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--[[\n\tLoads an animation on an Animator based on the animationId\n--]]\n\nlocal function loadAnimationTrack(animator: Animator, animationId: string): AnimationTrack\n\tlocal animation = Instance.new(\"Animation\")\n\tanimation.Name = string.format(\"Animation_%s\", animationId)\n\tanimation.AnimationId = animationId\n\tanimation.Parent = animator\n\n\tlocal animationTrack = animator:LoadAnimation(animation)\n\treturn animationTrack\nend\n\nreturn loadAnimationTrack\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Playing_an_Animation.loadAnimationTrack"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.Playing_an_Animation` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.Playing_an_Animation",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Playing_an_Animation.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.Playing_an_Animation.Demo`.",
+      "target": {
+        "path": "Workspace.Playing_an_Animation.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tThe loadAnimationTrack function is used to load an animation on an Animator by providing an animation asset ID.\n--]]\n\nlocal Players = game:GetService(\"Players\")\n\nlocal loadAnimationTrack = require(script.Parent.Parent.loadAnimationTrack)\n\nlocal localPlayer = Players.LocalPlayer\nlocal character = localPlayer.Character or localPlayer.CharacterAdded:Wait()\nlocal humanoid = character:WaitForChild(\"Humanoid\")\nlocal animator = humanoid:WaitForChild(\"Animator\")\n\n-- Create a new Animation object and load it onto the Animator given an animationId\nlocal myAnimationTrack = loadAnimationTrack(animator, \"rbxassetid://12259828678\")\n\n-- Play the animation\nmyAnimationTrack:Play()\n\n-- Stop the animation after 5 seconds\ntask.wait(5)\nmyAnimationTrack:Stop()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Playing_an_Animation.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.Playing_an_Animation` in the Explorer to see the assembled result."
+    }
+  ]
+}

@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "id": "action-manager",
+  "title": "Action Manager",
+  "goal": "Provides a wrapper for ContextActionService that displays actions on-screen. Input prompts automatically change based on the latest input type, rather than being set once based on peripherals.",
+  "tags": [
+    "Input",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Provides a wrapper for ContextActionService that displays actions on-screen. Input prompts automatically change based on the latest input type, rather than being set once based on peripherals.\n\nThis sample was ported from `solutions-samples/action-manager`. Every step is deterministic \u2014 watch the components assemble under `Workspace.ActionManager`."
+    },
+    {
+      "id": "s2-folder-actionmanager",
+      "type": "scripted",
+      "body": "Add a Folder `ActionManager` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "ActionManager"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ActionManager"
+      }
+    },
+    {
+      "id": "s3-actionmanager",
+      "type": "codeEdit",
+      "body": "Add `ActionManager` (ModuleScript) under `Workspace.ActionManager`.",
+      "target": {
+        "path": "Workspace.ActionManager.ActionManager",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal ContextActionService = game:GetService(\"ContextActionService\")\nlocal UserInputService = game:GetService(\"UserInputService\")\nlocal Players = game:GetService(\"Players\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal InputCategorizer = require(script.InputCategorizer)\nlocal InputMetadata = require(script.InputMetadata)\n\nlocal player = Players.LocalPlayer :: Player\nlocal playerGui = player:WaitForChild(\"PlayerGui\")\nlocal instances = script.Instances :: any\nlocal actionGui = instances.ActionGui\n\nlocal HORIZONTAL_PADDING = 40\nlocal VERTICAL_PADDING = 40\n\ntype ActionCallback = (string, Enum.UserInputState, InputObject) -> ...any\n\nlocal InputCategory = {\n\tKeyboardAndMouse = \"KeyboardAndMouse\",\n\tGamepad = \"Gamepad\",\n\tTouch = \"Touch\",\n\tUnknown = \"Unknown\",\n}\n\nlocal ActionManager = {\n\tInputCategory = InputCategory,\n\t_initialized = false,\n\t_bindings = {} :: { [string]: any },\n}\n\nfunction ActionManager.bindAction(\n\tactionName: string,\n\tcallback: ActionCallback,\n\tkeyboardAndMouseInput: Enum.KeyCode | Enum.UserInputType,\n\tgamepadInput: Enum.KeyCode | Enum.UserInputType,\n\tdisplayOrder: number?\n)\n\t-- Make sure action binds aren't overwritten\n\tif ActionManager._bindings[actionName] then\n\t\twarn(string.format(\"'%s' is already bound!\", actionName))\n\t\treturn\n\tend\n\n\tlocal binding = {\n\t\tconnections = {},\n\t\tkeyboardAndMouseInput = keyboardAndMouseInput,\n\t\tgamepadInput = gamepadInput,\n\t}\n\n\t-- Create a new UI element\n\tlocal actionFrame = instances.ActionFrame:Clone()\n\tactionFrame.ContentFrame.ActionLabel.Text = actionName\n\tactionFrame.LayoutOrder = displayOrder or 0\n\tactionFrame.Parent = actionGui.ListFrame\n\n\tbinding.frame = actionFrame\n\tActionManager._updateInputDisplay(binding, InputCategorizer.getLastInputCategory())\n\n\t-- Create a wrapper for the callback function so the UI can be updated in sync with the action\n\tlocal callbackWrapper = function(...)\n\t\tlocal action, inputState = ...\n\n\t\tif action == actionName then\n\t\t\tif inputState == Enum.UserInputState.Begin then\n\t\t\t\tactionFrame.ContentFrame.ActionLabel.BackgroundColor3 = Color3.new(1, 1, 1)\n\t\t\t\tactionFrame.ContentFrame.ActionLabel.TextColor3 = Color3.new(0, 0, 0)\n\t\t\telseif inputState == Enum.UserInputState.End then\n\t\t\t\tactionFrame.ContentFrame.ActionLabel.BackgroundColor3 = Color3.new(0, 0, 0)\n\t\t\t\tactionFrame.ContentFrame.ActionLabel.TextColor3 = Color3.new(1, 1, 1)\n\t\t\tend\n\t\tend\n\n\t\tcallback(...)\n\tend\n\n\t-- Touch button connections\n\ttable.insert(\n\t\tbinding.connections,\n\t\tactionFrame.TouchButton.InputBegan:Connect(function(inputObject)\n\t\t\tif inputObject.UserInputType == Enum.UserInputType.Touch then\n\t\t\t\tcallbackWrapper(actionName, Enum.UserInputState.Begin, inputObject)\n\t\t\tend\n\t\tend)\n\t)\n\n\ttable.insert(\n\t\tbinding.connections,\n\t\tactionFrame.TouchButton.InputEnded:Connect(function(inputObject)\n\t\t\tif inputObject.UserInputType == Enum.UserInputType.Touch then\n\t\t\t\tcallbackWrapper(actionName, Enum.UserInputState.End, inputObject)\n\t\t\tend\n\t\tend)\n\t)\n\n\t-- Bind the action using ContextActionService\n\tContextActionService:BindAction(actionName, callbackWrapper, false, keyboardAndMouseInput, gamepadInput)\n\t-- Save the binding\n\tActionManager._bindings[actionName] = binding\nend\n\nfunction ActionManager.unbindAction(actionName: string)\n\tlocal binding = ActionManager._bindings[actionName]\n\tif binding then\n\t\t-- Disconnect all connections for the binding\n\t\tfor _, connection in binding.connections do\n\t\t\tconnection:Disconnect()\n\t\tend\n\t\t-- Destroy the UI element for the binding\n\t\tbinding.frame:Destroy()\n\t\tActionManager._bindings[actionName] = nil\n\tend\n\n\t-- Unbind the action from ContextActionService\n\tContextActionService:UnbindAction(actionName)\nend\n\nfunction ActionManager._updateInputDisplay(binding, inputCategory)\n\t-- Remove old button display\n\tlocal oldButtonDisplay = binding.frame.ContentFrame.InputFrame:FindFirstChild(\"ButtonDisplayFrame\")\n\tif oldButtonDisplay then\n\t\toldButtonDisplay:Destroy()\n\tend\n\n\t-- Get a new button display\n\tlocal buttonDisplay: Instance\n\tif inputCategory == InputCategory.KeyboardAndMouse then\n\t\tbuttonDisplay = ActionManager._getButtonDisplayForInput(binding.keyboardAndMouseInput)\n\telseif inputCategory == InputCategory.Gamepad then\n\t\tbuttonDisplay = ActionManager._getButtonDisplayForInput(binding.gamepadInput)\n\telseif inputCategory == InputCategory.Touch then\n\t\tbuttonDisplay = ActionManager._getButtonDisplayForInput(Enum.UserInputType.Touch)\n\tend\n\tbuttonDisplay.Parent = binding.frame.ContentFrame.InputFrame\n\n\t-- Set the touch button to enabled/disabled depending on if the input category is touch\n\tbinding.frame.TouchButton.Visible = inputCategory == InputCategory.Touch\nend\n\n-- Create a new button display frame based on the provided KeyCode or UserInputType\nfunction ActionManager._getButtonDisplayForInput(input: Enum.KeyCode | Enum.UserInputType)\n\tlocal buttonDisplay = instances.ButtonDisplayFrame:Clone()\n\tlocal gamepadImage\n\tif input.EnumType == Enum.KeyCode then\n\t\tgamepadImage = UserInputService:GetImageForKeyCode(input :: Enum.KeyCode)\n\tend\n\n\tif input == Enum.UserInputType.Touch then\n\t\tlocal touchIcon = instances.TouchImageLabel:Clone()\n\t\ttouchIcon.Parent = buttonDisplay\n\telseif gamepadImage and gamepadImage ~= \"\" then\n\t\tlocal gamepadIcon = instances.GamepadImageLabel:Clone()\n\t\tgamepadIcon.Image = gamepadImage\n\t\tgamepadIcon.Parent = buttonDisplay\n\telseif InputMetadata.MouseButtonImage[input] then\n\t\tlocal mouseIcon = instances.MouseImageLabel:Clone()\n\t\tmouseIcon.Image = InputMetadata.MouseButtonImage[input]\n\t\tmouseIcon.Parent = buttonDisplay\n\telse\n\t\tlocal border = instances.KeyboardBorderImage:Clone()\n\t\tborder.Parent = buttonDisplay\n\n\t\t-- The following logic was taken and modified from the ProximityPrompt CoreScript\n\t\t-- UserInputService:GetStringForKeyCode() is used to display the correct input key when\n\t\t-- dealing with non-QWERTY keyboards\n\t\tlocal buttonTextString = UserInputService:GetStringForKeyCode(input :: Enum.KeyCode)\n\n\t\tlocal buttonTextImage = InputMetadata.KeyboardButtonImage[input]\n\t\tif not buttonTextImage then\n\t\t\tbuttonTextImage = InputMetadata.KeyboardButtonIconMapping[buttonTextString]\n\t\tend\n\n\t\tif not buttonTextImage then\n\t\t\tlocal keyCodeMappedText = InputMetadata.KeyCodeToTextMapping[input :: Enum.KeyCode]\n\t\t\tif keyCodeMappedText then\n\t\t\t\tbuttonTextString = keyCodeMappedText\n\t\t\tend\n\t\tend\n\n\t\tif buttonTextImage then\n\t\t\tlocal keyboardIcon = instances.KeyboardImageLabel:Clone()\n\t\t\tkeyboardIcon.Image = buttonTextImage\n\t\t\tkeyboardIcon.Parent = buttonDisplay\n\t\telseif buttonTextString and buttonTextString ~= \"\" then\n\t\t\tlocal keyboardText = instances.KeyboardTextLabel:Clone()\n\t\t\tkeyboardText.Text = buttonTextString\n\t\t\tkeyboardText.TextSize = InputMetadata.KeyCodeToFontSize[input :: Enum.KeyCode]\n\t\t\t\tor InputMetadata.DefaultFontSize\n\t\t\tkeyboardText.Parent = buttonDisplay\n\t\tend\n\tend\n\n\treturn buttonDisplay\nend\n\n-- Return an InputCategory based on the UserInputType\nfunction ActionManager._getCategoryOfInputType(inputType: Enum.UserInputType)\n\tif string.find(inputType.Name, \"Gamepad\") then\n\t\treturn InputCategory.Gamepad\n\telseif inputType == Enum.UserInputType.Keyboard or string.find(inputType.Name, \"Mouse\") then\n\t\treturn InputCategory.KeyboardAndMouse\n\telseif inputType == Enum.UserInputType.Touch then\n\t\treturn InputCategory.Touch\n\telse\n\t\treturn InputCategory.Unknown\n\tend\nend\n\n-- Return a default input category based on the current peripherals\nfunction ActionManager._getDefaultInputCategory()\n\tif UserInputService.KeyboardEnabled and UserInputService.MouseEnabled then\n\t\treturn InputCategory.KeyboardAndMouse\n\telseif UserInputService.TouchEnabled then\n\t\treturn InputCategory.Touch\n\telseif UserInputService.GamepadEnabled then\n\t\treturn InputCategory.Gamepad\n\telse\n\t\treturn InputCategory.Unknown\n\tend\nend\n\n-- Update the position and scale of the actions list\nfunction ActionManager._updatePositionAndScale()\n\tlocal touchControlsEnabled = playerGui:FindFirstChild(\"TouchGui\") ~= nil\n\t-- This is the same calculation used by the TouchGui for sizing the jump button\n\tlocal minScreenSize = math.min(actionGui.AbsoluteSize.X, actionGui.AbsoluteSize.Y)\n\tlocal isSmallScreen = minScreenSize < 500\n\n\tlocal verticalPadding = VERTICAL_PADDING\n\tif touchControlsEnabled and InputCategorizer.getLastInputCategory() == InputCategory.Touch then\n\t\t-- Offset the vertical padding to account for the jump button\n\t\t-- Note that the jump button can be two sizes depending on if the screen is considered small or not\n\t\tverticalPadding += if isSmallScreen then 70 else 210\n\tend\n\n\t-- If the screen is considered 'small', scale the action list down\n\tactionGui.ListFrame.UIScale.Scale = if isSmallScreen then 0.85 else 1\n\tactionGui.ListFrame.Position = UDim2.new(1, -HORIZONTAL_PADDING, 1, -verticalPadding)\nend\n\nfunction ActionManager._initialize()\n\tassert(not ActionManager._initialized, \"ActionManager already initialized!\")\n\tassert(RunService:IsClient(), \"ActionManager can only be used on the client!\")\n\n\t-- Update the position and scale of the list if the TouchGui is added/removed\n\tplayerGui.ChildAdded:Connect(function(child)\n\t\tif child.Name == \"TouchGui\" then\n\t\t\tActionManager._updatePositionAndScale()\n\t\tend\n\tend)\n\n\tplayerGui.ChildRemoved:Connect(function(child)\n\t\tif child.Name == \"TouchGui\" then\n\t\t\tActionManager._updatePositionAndScale()\n\t\tend\n\tend)\n\n\t-- Update the displayed buttons when the input category changes\n\tInputCategorizer.lastInputCategoryChanged:Connect(function(inputCategory)\n\t\tfor _, binding in ActionManager._bindings do\n\t\t\tActionManager._updateInputDisplay(binding, inputCategory)\n\t\tend\n\tend)\n\n\t-- Update the position and scale of the list when the screen size changes or last input category changes\n\tactionGui:GetPropertyChangedSignal(\"AbsoluteSize\"):Connect(ActionManager._updatePositionAndScale)\n\tInputCategorizer.lastInputCategoryChanged:Connect(ActionManager._updatePositionAndScale)\n\n\t-- Parent the UI to the player gui and update its position and scale\n\tactionGui.Parent = playerGui\n\tActionManager._updatePositionAndScale()\n\n\tActionManager._initialized = true\nend\n\nActionManager._initialize()\n\nreturn ActionManager\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ActionManager.ActionManager"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-actionmanager",
+      "type": "scripted",
+      "body": "Add a Folder `ActionManager` under `Workspace.ActionManager` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.ActionManager",
+        "props": {
+          "Name": "ActionManager"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ActionManager.ActionManager"
+      }
+    },
+    {
+      "id": "s5-inputmetadata",
+      "type": "codeEdit",
+      "body": "Add `InputMetadata` (ModuleScript) under `Workspace.ActionManager.ActionManager`.",
+      "target": {
+        "path": "Workspace.ActionManager.ActionManager.InputMetadata",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tMost of this was taken from the ProximityPrompt CoreScript.\n\tImages have been reuploaded in case the internal files get moved around/no longer exist.\n--]]\n\ntype InputToStringMapping = { [Enum.KeyCode | Enum.UserInputType]: string }\n\nreturn {\n\tKeyboardButtonImage = {\n\t\t[Enum.KeyCode.Backspace] = \"rbxassetid://13471227918\",\n\t\t[Enum.KeyCode.Return] = \"rbxassetid://13470705747\",\n\t\t[Enum.KeyCode.LeftShift] = \"rbxassetid://13470706643\",\n\t\t[Enum.KeyCode.RightShift] = \"rbxassetid://13470706643\",\n\t\t[Enum.KeyCode.Tab] = \"rbxassetid://13470709899\",\n\t} :: InputToStringMapping,\n\tMouseButtonImage = {\n\t\t[Enum.UserInputType.MouseButton1] = \"rbxassetid://13489692470\",\n\t\t[Enum.UserInputType.MouseButton2] = \"rbxassetid://13489693292\",\n\t\t[Enum.UserInputType.MouseButton3] = \"rbxassetid://13489694025\",\n\t} :: InputToStringMapping,\n\tKeyboardButtonIconMapping = {\n\t\t[\"'\"] = \"rbxassetid://13471372204\",\n\t\t[\",\"] = \"rbxassetid://13471373021\",\n\t\t[\"`\"] = \"rbxassetid://13470701681\",\n\t\t[\".\"] = \"rbxassetid://13470704934\",\n\t\t[\" \"] = \"rbxassetid://13470707649\",\n\t},\n\tKeyCodeToTextMapping = {\n\t\t[Enum.KeyCode.LeftControl] = \"Ctrl\",\n\t\t[Enum.KeyCode.RightControl] = \"Ctrl\",\n\t\t[Enum.KeyCode.LeftAlt] = \"Alt\",\n\t\t[Enum.KeyCode.RightAlt] = \"Alt\",\n\t\t[Enum.KeyCode.F1] = \"F1\",\n\t\t[Enum.KeyCode.F2] = \"F2\",\n\t\t[Enum.KeyCode.F3] = \"F3\",\n\t\t[Enum.KeyCode.F4] = \"F4\",\n\t\t[Enum.KeyCode.F5] = \"F5\",\n\t\t[Enum.KeyCode.F6] = \"F6\",\n\t\t[Enum.KeyCode.F7] = \"F7\",\n\t\t[Enum.KeyCode.F8] = \"F8\",\n\t\t[Enum.KeyCode.F9] = \"F9\",\n\t\t[Enum.KeyCode.F10] = \"F10\",\n\t\t[Enum.KeyCode.F11] = \"F11\",\n\t\t[Enum.KeyCode.F12] = \"F12\",\n\t\t[Enum.KeyCode.PageUp] = \"PgUp\",\n\t\t[Enum.KeyCode.PageDown] = \"PgDn\",\n\t\t[Enum.KeyCode.Home] = \"Home\",\n\t\t[Enum.KeyCode.End] = \"End\",\n\t\t[Enum.KeyCode.Insert] = \"Ins\",\n\t\t[Enum.KeyCode.Delete] = \"Del\",\n\t} :: InputToStringMapping,\n\tDefaultFontSize = 14,\n\tKeyCodeToFontSize = {\n\t\t[Enum.KeyCode.LeftControl] = 12,\n\t\t[Enum.KeyCode.RightControl] = 12,\n\t\t[Enum.KeyCode.LeftAlt] = 12,\n\t\t[Enum.KeyCode.RightAlt] = 12,\n\t\t[Enum.KeyCode.F10] = 12,\n\t\t[Enum.KeyCode.F11] = 12,\n\t\t[Enum.KeyCode.F12] = 12,\n\t\t[Enum.KeyCode.PageUp] = 8,\n\t\t[Enum.KeyCode.PageDown] = 8,\n\t\t[Enum.KeyCode.Home] = 8,\n\t\t[Enum.KeyCode.End] = 10,\n\t\t[Enum.KeyCode.Insert] = 10,\n\t\t[Enum.KeyCode.Delete] = 10,\n\t},\n}\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ActionManager.ActionManager.InputMetadata"
+        }
+      }
+    },
+    {
+      "id": "s6-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.ActionManager` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.ActionManager",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ActionManager.Demo"
+      }
+    },
+    {
+      "id": "s7-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (LocalScript) under `Workspace.ActionManager.Demo`.",
+      "target": {
+        "path": "Workspace.ActionManager.Demo.DemoScript",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "--!strict\n\n--[[\n\tActionManager provides a wrapper for ContextActionService that displays all bound actions on-screen.\n\tInput prompts automatically change based on the latest input type, rather than being set once based on peripherals.\n--]]\n\nlocal ActionManager = require(script.Parent.Parent.ActionManager)\n\n-- A list of action functions\nlocal actions = {\n\t[\"Backflip\"] = require(script.backflip),\n\t[\"Emote\"] = require(script.emote),\n}\n\n-- Function to call the appropriate action function when input is began\nlocal function actionHandler(action: string, inputState: Enum.UserInputState)\n\tif inputState == Enum.UserInputState.Begin then\n\t\tif actions[action] then\n\t\t\tactions[action]()\n\t\tend\n\tend\nend\n\n-- Actions are bound through ActionManager, rather than ContextActionService or UserInputService\nActionManager.bindAction(\"Backflip\", actionHandler, Enum.KeyCode.Q, Enum.KeyCode.ButtonX, 1)\nActionManager.bindAction(\"Emote\", actionHandler, Enum.KeyCode.E, Enum.KeyCode.ButtonY, 2)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ActionManager.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s8-folder-demoscript",
+      "type": "scripted",
+      "body": "Add a Folder `DemoScript` under `Workspace.ActionManager.Demo` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.ActionManager.Demo",
+        "props": {
+          "Name": "DemoScript"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ActionManager.Demo.DemoScript"
+      }
+    },
+    {
+      "id": "s9-backflip",
+      "type": "codeEdit",
+      "body": "Add `backflip` (ModuleScript) under `Workspace.ActionManager.Demo.DemoScript`.",
+      "target": {
+        "path": "Workspace.ActionManager.Demo.DemoScript.backflip",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal Players = game:GetService(\"Players\")\nlocal player = Players.LocalPlayer :: Player\n\nlocal isFlipping = false\n\nlocal function backflip()\n\tlocal character = player.Character\n\tif character then\n\t\tif isFlipping then\n\t\t\treturn\n\t\tend\n\n\t\tlocal humanoid = character:FindFirstChildOfClass(\"Humanoid\")\n\t\tif humanoid and character.PrimaryPart then\n\t\t\tlocal linearVelocity = character.PrimaryPart.CFrame:VectorToWorldSpace(Vector3.new(0, 50, 20))\n\t\t\tlocal angularVelocity = character.PrimaryPart.CFrame:VectorToWorldSpace(Vector3.new(12, 0, 0))\n\n\t\t\tisFlipping = true\n\t\t\thumanoid:ChangeState(Enum.HumanoidStateType.Physics)\n\t\t\tcharacter.PrimaryPart.AssemblyLinearVelocity += linearVelocity\n\t\t\tcharacter.PrimaryPart.AssemblyAngularVelocity += angularVelocity\n\t\t\ttask.wait(0.5)\n\t\t\thumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)\n\t\t\tisFlipping = false\n\t\tend\n\tend\nend\n\nreturn backflip\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ActionManager.Demo.DemoScript.backflip"
+        }
+      }
+    },
+    {
+      "id": "s10-emo",
+      "type": "codeEdit",
+      "body": "Add `emo` (ModuleScript) under `Workspace.ActionManager.Demo.DemoScript`.",
+      "target": {
+        "path": "Workspace.ActionManager.Demo.DemoScript.emo",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal Players = game:GetService(\"Players\")\nlocal player = Players.LocalPlayer :: Player\n\nlocal function emote()\n\tlocal character = player.Character\n\tif character then\n\t\t-- This should be casting to :: LocalScript? but Instance? can't be converted to LocalScript?\n\t\t-- so we'll just cast to any? for now\n\t\tlocal animateScript = character:FindFirstChild(\"Animate\") :: any?\n\t\tif animateScript then\n\t\t\tanimateScript.PlayEmote:Invoke(\"dance\")\n\t\tend\n\tend\nend\n\nreturn emote\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ActionManager.Demo.DemoScript.emo"
+        }
+      }
+    },
+    {
+      "id": "s11-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.ActionManager` in the Explorer to see the assembled result."
+    }
+  ]
+}

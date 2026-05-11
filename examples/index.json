@@ -1,34 +1,413 @@
 {
   "samples": [
     {
-      "id": "raycast-basics",
-      "title": "Raycast basics",
-      "path": "raycast-basics/lesson.json",
-      "tags": ["raycasting", "beginner", "events"]
+      "id": "action-manager",
+      "title": "Action Manager",
+      "path": "action-manager/lesson.json",
+      "tags": [
+        "Input",
+        "ported"
+      ]
     },
     {
-      "id": "surface-sign",
-      "title": "Surface sign",
-      "path": "surface-sign/lesson.json",
-      "tags": ["ui", "beginner"]
+      "id": "admin-commands",
+      "title": "Admin Commands",
+      "path": "admin-commands/lesson.json",
+      "tags": [
+        "General",
+        "ported"
+      ]
     },
     {
-      "id": "spinning-platform",
-      "title": "Spinning platform",
-      "path": "spinning-platform/lesson.json",
-      "tags": ["animation", "runtime", "beginner"]
+      "id": "beam-between",
+      "title": "Beam Between",
+      "path": "beam-between/lesson.json",
+      "tags": [
+        "Visual",
+        "ported"
+      ]
     },
     {
-      "id": "leaderboard-stats",
-      "title": "Leaderboard stats",
-      "path": "leaderboard-stats/lesson.json",
-      "tags": ["players", "events", "beginner"]
+      "id": "change-color-on-touch",
+      "title": "Change Part Color On Touch",
+      "path": "change-color-on-touch/lesson.json",
+      "tags": [
+        "Player & Character",
+        "ported"
+      ]
+    },
+    {
+      "id": "character-loaded-wrapper",
+      "title": "Character Loaded Wrapper",
+      "path": "character-loaded-wrapper/lesson.json",
+      "tags": [
+        "Player & Character",
+        "ported"
+      ]
+    },
+    {
+      "id": "character-path",
+      "title": "Character Path Beam",
+      "path": "character-path/lesson.json",
+      "tags": [
+        "Player & Character",
+        "ported"
+      ]
+    },
+    {
+      "id": "cloud-config",
+      "title": "Cloud Config",
+      "path": "cloud-config/lesson.json",
+      "tags": [
+        "Cloud Services",
+        "ported"
+      ]
+    },
+    {
+      "id": "code-reservation-service",
+      "title": "Code Reservation Service",
+      "path": "code-reservation-service/lesson.json",
+      "tags": [
+        "Cloud Services",
+        "ported"
+      ]
+    },
+    {
+      "id": "create-instance-tree",
+      "title": "Create Instance Tree",
+      "path": "create-instance-tree/lesson.json",
+      "tags": [
+        "Utility",
+        "ported"
+      ]
+    },
+    {
+      "id": "crossfade-async",
+      "title": "Crossfading Two Sounds",
+      "path": "crossfade-async/lesson.json",
+      "tags": [
+        "Audio",
+        "ported"
+      ]
+    },
+    {
+      "id": "data-store-wrapper",
+      "title": "Data Store Retries",
+      "path": "data-store-wrapper/lesson.json",
+      "tags": [
+        "Cloud Services",
+        "ported"
+      ]
     },
     {
       "id": "daynight-cycle",
       "title": "Day/night cycle",
       "path": "daynight-cycle/lesson.json",
-      "tags": ["lighting", "runtime", "beginner"]
+      "tags": [
+        "lighting",
+        "runtime",
+        "beginner"
+      ]
+    },
+    {
+      "id": "donation-leaderboard",
+      "title": "Donation Leaderboard",
+      "path": "donation-leaderboard/lesson.json",
+      "tags": [
+        "General",
+        "ported"
+      ]
+    },
+    {
+      "id": "find-first-child-with-attribute",
+      "title": "Find First Child With Attribute",
+      "path": "find-first-child-with-attribute/lesson.json",
+      "tags": [
+        "Utility",
+        "ported"
+      ]
+    },
+    {
+      "id": "fire-raycast",
+      "title": "Raycasting",
+      "path": "fire-raycast/lesson.json",
+      "tags": [
+        "3D Space",
+        "ported"
+      ]
+    },
+    {
+      "id": "following-attachment",
+      "title": "Model Following a Player",
+      "path": "following-attachment/lesson.json",
+      "tags": [
+        "Player & Character",
+        "ported"
+      ]
+    },
+    {
+      "id": "format-time",
+      "title": "Format Time",
+      "path": "format-time/lesson.json",
+      "tags": [
+        "Utility",
+        "ported"
+      ]
+    },
+    {
+      "id": "geofence",
+      "title": "Geofencing",
+      "path": "geofence/lesson.json",
+      "tags": [
+        "General",
+        "ported"
+      ]
+    },
+    {
+      "id": "get-character-attachment",
+      "title": "Get Character Attachment",
+      "path": "get-character-attachment/lesson.json",
+      "tags": [
+        "Player & Character",
+        "ported"
+      ]
+    },
+    {
+      "id": "input-categorizer",
+      "title": "Input Categorizer",
+      "path": "input-categorizer/lesson.json",
+      "tags": [
+        "Input",
+        "ported"
+      ]
+    },
+    {
+      "id": "isometric-camera",
+      "title": "Isometric Camera",
+      "path": "isometric-camera/lesson.json",
+      "tags": [
+        "Camera",
+        "ported"
+      ]
+    },
+    {
+      "id": "leader-election",
+      "title": "Leader Election",
+      "path": "leader-election/lesson.json",
+      "tags": [
+        "Cloud Services",
+        "ported"
+      ]
+    },
+    {
+      "id": "leaderboard",
+      "title": "Leaderboard Module",
+      "path": "leaderboard/lesson.json",
+      "tags": [
+        "Leaderboard",
+        "ported"
+      ]
+    },
+    {
+      "id": "leaderboard-stats",
+      "title": "Leaderboard stats",
+      "path": "leaderboard-stats/lesson.json",
+      "tags": [
+        "players",
+        "events",
+        "beginner"
+      ]
+    },
+    {
+      "id": "lighting-presets",
+      "title": "Lighting Presets",
+      "path": "lighting-presets/lesson.json",
+      "tags": [
+        "General",
+        "ported"
+      ]
+    },
+    {
+      "id": "load-animation-track",
+      "title": "Playing an Animation",
+      "path": "load-animation-track/lesson.json",
+      "tags": [
+        "Animations",
+        "ported"
+      ]
+    },
+    {
+      "id": "loading-screen",
+      "title": "Loading Screen",
+      "path": "loading-screen/lesson.json",
+      "tags": [
+        "General",
+        "ported"
+      ]
+    },
+    {
+      "id": "moderation-system",
+      "title": "Moderation System",
+      "path": "moderation-system/lesson.json",
+      "tags": [
+        "General",
+        "ported"
+      ]
+    },
+    {
+      "id": "parallax-portal",
+      "title": "Parallax Portal",
+      "path": "parallax-portal/lesson.json",
+      "tags": [
+        "General",
+        "ported"
+      ]
+    },
+    {
+      "id": "play-smoke-puff",
+      "title": "Play Smoke Puff",
+      "path": "play-smoke-puff/lesson.json",
+      "tags": [
+        "Visual",
+        "ported"
+      ]
+    },
+    {
+      "id": "player-data",
+      "title": "Player Data",
+      "path": "player-data/lesson.json",
+      "tags": [
+        "Cloud Services",
+        "ported"
+      ]
+    },
+    {
+      "id": "player-lifecycle-events",
+      "title": "Player Lifecycle Events",
+      "path": "player-lifecycle-events/lesson.json",
+      "tags": [
+        "Player & Character",
+        "ported"
+      ]
+    },
+    {
+      "id": "portal-door",
+      "title": "Portal Door",
+      "path": "portal-door/lesson.json",
+      "tags": [
+        "General",
+        "ported"
+      ]
+    },
+    {
+      "id": "purchase-handling",
+      "title": "Purchase Handling",
+      "path": "purchase-handling/lesson.json",
+      "tags": [
+        "Cloud Services",
+        "ported"
+      ]
+    },
+    {
+      "id": "raycast-basics",
+      "title": "Raycast basics",
+      "path": "raycast-basics/lesson.json",
+      "tags": [
+        "raycasting",
+        "beginner",
+        "events"
+      ]
+    },
+    {
+      "id": "retry-async",
+      "title": "Retry Async",
+      "path": "retry-async/lesson.json",
+      "tags": [
+        "Utility",
+        "ported"
+      ]
+    },
+    {
+      "id": "safe-player-added",
+      "title": "Safe Player Added",
+      "path": "safe-player-added/lesson.json",
+      "tags": [
+        "Player & Character",
+        "ported"
+      ]
+    },
+    {
+      "id": "signal",
+      "title": "Custom Event",
+      "path": "signal/lesson.json",
+      "tags": [
+        "Utility",
+        "ported"
+      ]
+    },
+    {
+      "id": "spinning-platform",
+      "title": "Spinning platform",
+      "path": "spinning-platform/lesson.json",
+      "tags": [
+        "animation",
+        "runtime",
+        "beginner"
+      ]
+    },
+    {
+      "id": "sprint-with-button",
+      "title": "Sprint with Button",
+      "path": "sprint-with-button/lesson.json",
+      "tags": [
+        "Input",
+        "ported"
+      ]
+    },
+    {
+      "id": "surface-sign",
+      "title": "Surface sign",
+      "path": "surface-sign/lesson.json",
+      "tags": [
+        "ui",
+        "beginner"
+      ]
+    },
+    {
+      "id": "thread-queue",
+      "title": "ThreadQueue",
+      "path": "thread-queue/lesson.json",
+      "tags": [
+        "Utility",
+        "ported"
+      ]
+    },
+    {
+      "id": "toggle-gui-frames",
+      "title": "Toggling Gui Frames",
+      "path": "toggle-gui-frames/lesson.json",
+      "tags": [
+        "UI",
+        "ported"
+      ]
+    },
+    {
+      "id": "tween-group",
+      "title": "Tween Group",
+      "path": "tween-group/lesson.json",
+      "tags": [
+        "Visual",
+        "ported"
+      ]
+    },
+    {
+      "id": "tweening-a-model",
+      "title": "Using TweenService on a Model",
+      "path": "tweening-a-model/lesson.json",
+      "tags": [
+        "Visual",
+        "ported"
+      ]
     }
   ]
 }

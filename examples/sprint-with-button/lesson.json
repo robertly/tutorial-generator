@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "sprint-with-button",
+  "title": "Sprint with Button",
+  "goal": "Demonstrates how to increase a player's speed when specific inputs are pressed. This sample implements left shift to run on keyboard, X to run on gamepad, and a touch button for mobile. The input buttons can be modified to any input desired.",
+  "tags": [
+    "Input",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates how to increase a player's speed when specific inputs are pressed. This sample implements left shift to run on keyboard, X to run on gamepad, and a touch button for mobile. The input buttons can be modified to any input desired.\n\nThis sample was ported from `solutions-samples/sprint-with-button`. Every step is deterministic \u2014 watch the components assemble under `Workspace.SprintWithButton`."
+    },
+    {
+      "id": "s2-folder-sprintwithbutton",
+      "type": "scripted",
+      "body": "Add a Folder `SprintWithButton` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "SprintWithButton"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.SprintWithButton"
+      }
+    },
+    {
+      "id": "s3-sprintwithbutton",
+      "type": "codeEdit",
+      "body": "Add `SprintWithButton` (Script) under `Workspace.SprintWithButton`.",
+      "target": {
+        "path": "Workspace.SprintWithButton.SprintWithButton",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tDemonstrates how to increase a player's speed when specific inputs are pressed.\n\tThis sample implements left shift to run on keyboard, X to run on gamepad, and a touch button for mobile.\n\tThe input buttons can be modified to any input desired.\n--]]\n\nlocal Players = game:GetService(\"Players\")\nlocal ContextActionService = game:GetService(\"ContextActionService\")\n\n-- Get the player's humanoid\nlocal player = Players.LocalPlayer\nlocal character = player.Character or player.CharacterAdded:Wait()\nlocal humanoid = character:WaitForChild(\"Humanoid\")\n\nlocal SPRINT_ACTION = \"SprintAction\"\n-- Keep track of the original walkspeed and a multiplier to use for sprinting\nlocal WALK_SPEED = humanoid.WalkSpeed\nlocal SPRINT_SPEED_MULTIPLIER = 2\n\n-- Define buttons to use for sprinting on both keyboard and gamepad\nlocal SPRINT_BUTTON_KEYBOARD = Enum.KeyCode.LeftShift\nlocal SPRINT_BUTTON_GAMEPAD = Enum.KeyCode.ButtonX\n\n-- When the player respawns, we need to get new reference to their humanoid\nlocal function onCharacterAdded(newCharacter)\n\thumanoid = newCharacter:WaitForChild(\"Humanoid\")\n\tcharacter = newCharacter\nend\n\nlocal function handleAction(actionName, inputState)\n\t-- Make sure that the SPRINT_ACTION is being handled\n\tif actionName == SPRINT_ACTION then\n\t\tif inputState == Enum.UserInputState.Begin then\n\t\t\t-- If the input is beginning, set the humanoid's WalkSpeed based on SPRINT_SPEED_MULTIPLIER\n\t\t\thumanoid.WalkSpeed = WALK_SPEED * SPRINT_SPEED_MULTIPLIER\n\t\telseif inputState == Enum.UserInputState.End then\n\t\t\t-- If the input is ending, set the humanoid's WalkSpeed back to its default\n\t\t\thumanoid.WalkSpeed = WALK_SPEED\n\t\tend\n\tend\nend\n\n-- If the player respawns, we need to handle their new character\nplayer.CharacterAdded:Connect(onCharacterAdded)\n\n-- Bind the keyboard and gamepad buttons to our handleAction function\n-- BindAction automatically creates a mobile button to activate this action\nContextActionService:BindAction(SPRINT_ACTION, handleAction, true, SPRINT_BUTTON_KEYBOARD, SPRINT_BUTTON_GAMEPAD)\n-- Set the title of the mobile button\nContextActionService:SetTitle(SPRINT_ACTION, \"Sprint\")\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.SprintWithButton.SprintWithButton"
+        }
+      }
+    },
+    {
+      "id": "s4-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.SprintWithButton` in the Explorer to see the assembled result."
+    }
+  ]
+}

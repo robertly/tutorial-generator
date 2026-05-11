@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "input-categorizer",
+  "title": "Input Categorizer",
+  "goal": "The InputCategorizer module categorizes various UserInputTypes (MouseButton1, MouseButton2, Gamepad1/2/3, etc.) into more manageable categories and provides an event for when the last input category changes, rather than last UserInputType.",
+  "tags": [
+    "Input",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "The InputCategorizer module categorizes various UserInputTypes (MouseButton1, MouseButton2, Gamepad1/2/3, etc.) into more manageable categories and provides an event for when the last input category changes, rather than last UserInputType.\n\nThis sample was ported from `solutions-samples/input-categorizer`. Every step is deterministic \u2014 watch the components assemble under `Workspace.InputCategorizer`."
+    },
+    {
+      "id": "s2-folder-inputcategorizer",
+      "type": "scripted",
+      "body": "Add a Folder `InputCategorizer` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "InputCategorizer"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.InputCategorizer"
+      }
+    },
+    {
+      "id": "s3-inputcategorizer",
+      "type": "codeEdit",
+      "body": "Add `InputCategorizer` (ModuleScript) under `Workspace.InputCategorizer`.",
+      "target": {
+        "path": "Workspace.InputCategorizer.InputCategorizer",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal UserInputService = game:GetService(\"UserInputService\")\n\nlocal Signal = require(script.Signal)\n\ntype ActionCallback = (string, Enum.UserInputState, InputObject) -> ...any\n\nlocal InputCategory = {\n\tKeyboardAndMouse = \"KeyboardAndMouse\",\n\tGamepad = \"Gamepad\",\n\tTouch = \"Touch\",\n\tUnknown = \"Unknown\",\n}\n\nlocal InputCategorizer = {\n\tInputCategory = InputCategory,\n\tlastInputCategoryChanged = Signal.new(),\n\t_lastInputCategory = InputCategory.Unknown,\n\t_initialized = false,\n}\n\n-- Return the last input category\nfunction InputCategorizer.getLastInputCategory()\n\treturn InputCategorizer._lastInputCategory\nend\n\n-- If _lastInputCategory and inputCategory are different, set _lastInputCategory and fire lastInputCategoryChanged\nfunction InputCategorizer._setLastInputCategory(inputCategory: string)\n\tif InputCategorizer._lastInputCategory ~= inputCategory then\n\t\tInputCategorizer._lastInputCategory = inputCategory\n\t\tInputCategorizer.lastInputCategoryChanged:Fire(inputCategory)\n\tend\nend\n\n-- Return an InputCategory based on the UserInputType\nfunction InputCategorizer._getCategoryOfInputType(inputType: Enum.UserInputType)\n\tif string.find(inputType.Name, \"Gamepad\") then\n\t\treturn InputCategory.Gamepad\n\telseif inputType == Enum.UserInputType.Keyboard or string.find(inputType.Name, \"Mouse\") then\n\t\treturn InputCategory.KeyboardAndMouse\n\telseif inputType == Enum.UserInputType.Touch then\n\t\treturn InputCategory.Touch\n\telse\n\t\treturn InputCategory.Unknown\n\tend\nend\n\nfunction InputCategorizer._onInputTypeChanged(inputType: Enum.UserInputType)\n\tlocal inputCategory = InputCategorizer._getCategoryOfInputType(inputType)\n\tif inputCategory ~= InputCategory.Unknown then\n\t\tInputCategorizer._setLastInputCategory(inputCategory)\n\tend\nend\n\n-- Return a default input category based on the current peripherals\nfunction InputCategorizer._getDefaultInputCategory()\n\tlocal lastInputType = UserInputService:GetLastInputType()\n\tlocal lastInputCategory = InputCategorizer._getCategoryOfInputType(lastInputType)\n\n\tif lastInputCategory ~= InputCategory.Unknown then\n\t\treturn lastInputCategory\n\tend\n\n\tif UserInputService.KeyboardEnabled and UserInputService.MouseEnabled then\n\t\treturn InputCategory.KeyboardAndMouse\n\telseif UserInputService.TouchEnabled then\n\t\treturn InputCategory.Touch\n\telseif UserInputService.GamepadEnabled then\n\t\treturn InputCategory.Gamepad\n\telse\n\t\twarn(\"No input devices detected!\")\n\t\treturn InputCategory.Unknown\n\tend\nend\n\nfunction InputCategorizer._initialize()\n\tassert(not InputCategorizer._initialized, \"InputCategorizer already initialized!\")\n\n\t-- Update the last category when the last inputType changes\n\tUserInputService.LastInputTypeChanged:Connect(InputCategorizer._onInputTypeChanged)\n\n\t-- Set the starting input category\n\tlocal defaultInputCategory = InputCategorizer._getDefaultInputCategory()\n\tInputCategorizer._setLastInputCategory(defaultInputCategory)\n\n\tInputCategorizer._initialized = true\nend\n\nInputCategorizer._initialize()\n\nreturn InputCategorizer\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.InputCategorizer.InputCategorizer"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.InputCategorizer` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.InputCategorizer",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.InputCategorizer.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.InputCategorizer.Demo`.",
+      "target": {
+        "path": "Workspace.InputCategorizer.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\n--[[\n\tThe InputCategorizer module categorizes various UserInputTypes (MouseButton1, MouseButton2, Gamepad1/2/3, etc.)\n\tinto more manageable categories and provides an event for when the last input category changes, rather than last UserInputType.\n--]]\n\nlocal InputCategorizer = require(script.Parent.Parent.InputCategorizer)\n\nlocal function onLastInputCategoryChanged(inputCategory)\n\tprint(string.format(\"The input category has changed to %s!\", inputCategory :: string))\nend\n\nInputCategorizer.lastInputCategoryChanged:Connect(onLastInputCategoryChanged)\n\nlocal lastInputCategory = InputCategorizer.getLastInputCategory()\nprint(string.format(\"The current input category is %s!\", lastInputCategory))\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.InputCategorizer.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.InputCategorizer` in the Explorer to see the assembled result."
+    }
+  ]
+}

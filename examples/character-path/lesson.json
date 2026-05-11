@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "character-path",
+  "title": "Character Path Beam",
+  "goal": "Creates a guiding beam from the bottom of the local character to a destination attachment. Useful for guiding players towards objectives in order to progress.",
+  "tags": [
+    "Player & Character",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Creates a guiding beam from the bottom of the local character to a destination attachment. Useful for guiding players towards objectives in order to progress.\n\nThis sample was ported from `solutions-samples/character-path`. Every step is deterministic \u2014 watch the components assemble under `Workspace.CharacterPath`."
+    },
+    {
+      "id": "s2-folder-characterpath",
+      "type": "scripted",
+      "body": "Add a Folder `CharacterPath` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "CharacterPath"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CharacterPath"
+      }
+    },
+    {
+      "id": "s3-characterpath",
+      "type": "codeEdit",
+      "body": "Add `CharacterPath` (ModuleScript) under `Workspace.CharacterPath`.",
+      "target": {
+        "path": "Workspace.CharacterPath.CharacterPath",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tCreates a guiding beam from the bottom of the local character to a destination attachment\n--]]\n\nlocal Players = game:GetService(\"Players\")\n\nlocal BeamBetween = require(script.BeamBetween)\nlocal CharacterLoadedWrapper = require(script.CharacterLoadedWrapper)\n\nlocal characterBeamPrefab: Beam = script.CharacterBeamPrefab\nlocal localPlayer = Players.LocalPlayer :: Player\n\nlocal function getHumanoidRootPartOffset(humanoid: Humanoid)\n\tlocal rootPart = humanoid.RootPart\n\tassert(rootPart, \"Humanoid has no RootPart set\")\n\n\treturn (rootPart.Size.Y * 0.5) + humanoid.HipHeight\nend\n\nlocal CharacterPath = {}\nCharacterPath.__index = CharacterPath\n\nfunction CharacterPath.new(targetAttachment: Attachment)\n\tlocal self = {\n\t\t_characterLoadedWrapper = CharacterLoadedWrapper.new(localPlayer),\n\t\t_beamBetween = nil,\n\t\t_connections = {},\n\t}\n\tsetmetatable(self, CharacterPath)\n\n\tself:_setup(targetAttachment)\n\n\treturn self\nend\n\nfunction CharacterPath:_setup(targetAttachment: Attachment)\n\tif self._characterLoadedWrapper:isLoaded() then\n\t\tself:_makeBeamFromCharacterToAttachment(targetAttachment)\n\tend\n\tlocal characterLoadedConnection = self._characterLoadedWrapper.loaded:Connect(function()\n\t\tself:_makeBeamFromCharacterToAttachment(targetAttachment)\n\tend)\n\n\tlocal characterDiedConnection = self._characterLoadedWrapper.died:Connect(function()\n\t\tif self._beamBetween then\n\t\t\tself._beamBetween:destroy()\n\t\tend\n\tend)\n\ttable.insert(self._connections, characterLoadedConnection)\n\ttable.insert(self._connections, characterDiedConnection)\nend\n\nfunction CharacterPath:_makeBeamFromCharacterToAttachment(targetAttachment: Attachment)\n\tlocal character = localPlayer.Character :: Model\n\tlocal humanoid = character:FindFirstChild(\"Humanoid\") :: Humanoid\n\n\tlocal rootPartOffset = getHumanoidRootPartOffset(humanoid)\n\n\tlocal attachment0 = Instance.new(\"Attachment\")\n\tattachment0.Position = Vector3.new(0, -rootPartOffset, 0)\n\tattachment0.Parent = character.PrimaryPart\n\n\tlocal beamBetween = BeamBetween.new(attachment0, targetAttachment, characterBeamPrefab) :: any\n\tbeamBetween:setEnabled(true)\n\tself._beamBetween = beamBetween\nend\n\nfunction CharacterPath:destroy()\n\tfor _, connection in pairs(self._connections) do\n\t\tconnection:Disconnect()\n\tend\n\n\tif self._beamBetween then\n\t\tself._beamBetween:destroy()\n\tend\n\n\tself._characterLoadedWrapper:destroy()\nend\n\nreturn CharacterPath\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CharacterPath.CharacterPath"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.CharacterPath` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.CharacterPath",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CharacterPath.Demo"
+      }
+    },
+    {
+      "id": "s5-folder-instances",
+      "type": "scripted",
+      "body": "Add a Folder `Instances` under `Workspace.CharacterPath.Demo` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.CharacterPath.Demo",
+        "props": {
+          "Name": "Instances"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CharacterPath.Demo.Instances"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.CharacterPath.Demo`.",
+      "target": {
+        "path": "Workspace.CharacterPath.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tCreates a guiding beam from the bottom of the local character to a destination attachment.\n\tUseful for guiding players towards objectives in order to progress.\n--]]\n\nlocal Players = game:GetService(\"Players\")\n\nlocal CharacterPath = require(script.Parent.Parent.CharacterPath)\nlocal instances = script.Parent.Instances\nlocal building = instances:WaitForChild(\"Building\")\nlocal revolvingDoor = building.PrimaryPart\nlocal pathAttachment = revolvingDoor.PathAttachment\n\n-- Create a path connecting from the character to the pathAttachment on the door\nlocal characterPath = CharacterPath.new(pathAttachment)\n\n-- Destroy the path when the player reaches the door\nlocal doorReachedConnection\ndoorReachedConnection = revolvingDoor.Touched:Connect(function(otherPart)\n\tlocal character = otherPart.Parent\n\tlocal player = Players:GetPlayerFromCharacter(character)\n\tif player then\n\t\tdoorReachedConnection:Disconnect()\n\t\tcharacterPath:destroy()\n\tend\nend)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CharacterPath.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.CharacterPath` in the Explorer to see the assembled result."
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "id": "geofence",
+  "title": "Geofencing",
+  "goal": "Demonstrates a geofencing system to block content from users based on their region.",
+  "tags": [
+    "General",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates a geofencing system to block content from users based on their region.\n\nThis sample was ported from `solutions-samples/geofence`. Every step is deterministic \u2014 watch the components assemble under `Workspace.Geofence`."
+    },
+    {
+      "id": "s2-folder-geofence",
+      "type": "scripted",
+      "body": "Add a Folder `Geofence` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "Geofence"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Geofence"
+      }
+    },
+    {
+      "id": "s3-geofence",
+      "type": "codeEdit",
+      "body": "Add `Geofence` (ModuleScript) under `Workspace.Geofence`.",
+      "target": {
+        "path": "Workspace.Geofence.Geofence",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal CollectionService = game:GetService(\"CollectionService\")\nlocal LocalizationService = game:GetService(\"LocalizationService\")\nlocal Players = game:GetService(\"Players\")\nlocal RunService = game:GetService(\"RunService\")\n\nassert(RunService:IsClient(), \"Geofence can only be used on the client\")\n\nlocal GET_REGION_RETRY_AMOUNT = 10\nlocal GET_REGION_RETRY_INTERVAL = 1\n\nlocal PolicyType = {\n\tAllow = \"Allow\",\n\tDeny = \"Deny\",\n}\n\nlocal retryAsync = require(script.retryAsync)\nlocal localPlayer = Players.LocalPlayer :: Player\nlocal localRegion = \"\"\n\nlocal Geofence = {\n\t_initialized = false,\n\t_policies = {} :: { [string]: any },\n\t_connections = {} :: { [string]: RBXScriptConnection },\n}\n\n-- Attempt to retrieve the LocalPlayer's region code\nfunction Geofence._initialize()\n\tassert(not Geofence._initialized, \"Module already initialized\")\n\tGeofence._initialized = true\n\n\ttask.spawn(function()\n\t\t-- Retry <GET_REGION_RETRY_AMOUNT> times with a <GET_REGION_RETRY_INTERVAL> second wait between each try\n\t\tlocal success, result = retryAsync(function()\n\t\t\treturn LocalizationService:GetCountryRegionForPlayerAsync(localPlayer)\n\t\tend, GET_REGION_RETRY_AMOUNT, GET_REGION_RETRY_INTERVAL)\n\n\t\tif success then\n\t\t\tlocalRegion = result\n\n\t\t\t-- Retroactively enforce policy on anything that may have been missed while retrieving the region\n\t\t\tfor tag in Geofence._policies do\n\t\t\t\tlocal instances = CollectionService:GetTagged(tag)\n\t\t\t\tfor _, instance in instances do\n\t\t\t\t\tGeofence._enforcePolicy(instance, tag)\n\t\t\t\tend\n\t\t\tend\n\t\telse\n\t\t\twarn(\"Failed to get region code!\")\n\t\tend\n\tend)\nend\n\n-- Decide whether to destroy an object based on policy set for the tag\nfunction Geofence._enforcePolicy(instance: Instance, tag: string)\n\tlocal policyInfo = Geofence._policies[tag]\n\tassert(policyInfo ~= nil, string.format(\"No policy exists for tag: %s\", tag))\n\n\tlocal shouldDestroy = false\n\tif policyInfo.policy == PolicyType.Allow then\n\t\tshouldDestroy = table.find(policyInfo.regions, localRegion) == nil\n\telseif policyInfo.policy == PolicyType.Deny then\n\t\tshouldDestroy = table.find(policyInfo.regions, localRegion) ~= nil\n\tend\n\n\tif shouldDestroy then\n\t\t-- Destroy is deferred to avoid running into issues where an instance is destroyed\n\t\t-- at the same time as being parented, which will fail and output a warning\n\t\ttask.defer(instance.Destroy, instance)\n\tend\nend\n\nfunction Geofence._setTagPolicyForRegions(tag: string, regions: { string }, policy: string)\n\tif not Geofence._policies[tag] then\n\t\tGeofence._policies[tag] = {}\n\tend\n\n\tGeofence._policies[tag].policy = policy\n\tGeofence._policies[tag].regions = regions\n\n\tif not Geofence._connections[tag] then\n\t\t-- Any new instances created with the tag are subject to the policy\n\t\tGeofence._connections[tag] = CollectionService:GetInstanceAddedSignal(tag):Connect(function(instance)\n\t\t\tGeofence._enforcePolicy(instance, tag)\n\t\tend)\n\tend\n\n\t-- Make sure all current instances with the tag have the policy applied\n\tfor _, instance in CollectionService:GetTagged(tag) do\n\t\tGeofence._enforcePolicy(instance, tag)\n\tend\nend\n\n-- A full list of country region codes can be found here:\n-- https://create.roblox.com/docs/reference/engine/classes/LocalizationService#GetCountryRegionForPlayerAsync\n\n-- Enable instances with tags *only* for the specified region codes\nfunction Geofence.enableForRegions(tags: { string }, regions: { string })\n\tfor _, tag in tags do\n\t\tGeofence._setTagPolicyForRegions(tag, regions, PolicyType.Allow)\n\tend\nend\n\n-- Disable instances with tags for the specified region codes\nfunction Geofence.disableForRegions(tags: { string }, regions: { string })\n\tfor _, tag in tags do\n\t\tGeofence._setTagPolicyForRegions(tag, regions, PolicyType.Deny)\n\tend\nend\n\nGeofence._initialize()\n\nreturn Geofence\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Geofence.Geofence"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.Geofence` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.Geofence",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Geofence.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.Geofence.Demo`.",
+      "target": {
+        "path": "Workspace.Geofence.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\n--[[\n\tDemonstrates a geofencing system to block content from users based on their region.\n--]]\n\nlocal CollectionService = game:GetService(\"CollectionService\")\n\nlocal Geofence = require(script.Parent.Parent.Geofence)\n\nGeofence.disableForRegions({ \"HideInUS\" }, { \"US\" })\nGeofence.enableForRegions({ \"ShowInUS\" }, { \"US\" })\n\nCollectionService:AddTag(script.Parent:WaitForChild(\"HotdogA\"), \"ShowInUS\")\nCollectionService:AddTag(script.Parent:WaitForChild(\"HotdogB\"), \"HideInUS\")\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Geofence.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-clone-hotdoga",
+      "type": "scripted",
+      "body": "Clone the bundled `HotdogA` instance tree into `Workspace.Geofence.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.geofence.HotdogA",
+        "parent": "Workspace.Geofence.Demo",
+        "name": "HotdogA"
+      },
+      "focus": {
+        "selection": "Workspace.Geofence.Demo.HotdogA"
+      }
+    },
+    {
+      "id": "s7-clone-hotdogb",
+      "type": "scripted",
+      "body": "Clone the bundled `HotdogB` instance tree into `Workspace.Geofence.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.geofence.HotdogB",
+        "parent": "Workspace.Geofence.Demo",
+        "name": "HotdogB"
+      },
+      "focus": {
+        "selection": "Workspace.Geofence.Demo.HotdogB"
+      }
+    },
+    {
+      "id": "s8-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.Geofence` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.geofence.HotdogA",
+      "name": "HotdogA",
+      "description": "Bundled instance tree from solutions-samples/geofence."
+    },
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.geofence.HotdogB",
+      "name": "HotdogB",
+      "description": "Bundled instance tree from solutions-samples/geofence."
+    }
+  ]
+}

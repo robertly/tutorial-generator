@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "crossfade-async",
+  "title": "Crossfading Two Sounds",
+  "goal": "Crossfading is an audio editing technique that creates a smooth transition between two audio clips. Demonstrates crossfading between two sounds indefinitely.",
+  "tags": [
+    "Audio",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Crossfading is an audio editing technique that creates a smooth transition between two audio clips. Demonstrates crossfading between two sounds indefinitely.\n\nThis sample was ported from `solutions-samples/crossfade-async`. Every step is deterministic \u2014 watch the components assemble under `Workspace.Crossfade_Sounds`."
+    },
+    {
+      "id": "s2-folder-crossfade-sounds",
+      "type": "scripted",
+      "body": "Add a Folder `Crossfade_Sounds` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "Crossfade_Sounds"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Crossfade_Sounds"
+      }
+    },
+    {
+      "id": "s3-crossfadeasync",
+      "type": "codeEdit",
+      "body": "Add `crossfadeAsync` (ModuleScript) under `Workspace.Crossfade_Sounds`.",
+      "target": {
+        "path": "Workspace.Crossfade_Sounds.crossfadeAsync",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "local TweenService = game:GetService(\"TweenService\")\n\nlocal function crossfadeAsync(fadeFromSound: Sound, fadeToSound: Sound, fadeTime: number, volume: number)\n\tlocal tweenInfo = TweenInfo.new(fadeTime)\n\n\tlocal fadeOutTween = TweenService:Create(fadeFromSound, tweenInfo, { Volume = 0 })\n\tlocal fadeInTween = TweenService:Create(fadeToSound, tweenInfo, { Volume = volume })\n\n\tfadeOutTween:Play()\n\tfadeInTween:Play()\n\n\tfadeInTween.Completed:Wait()\nend\n\nreturn crossfadeAsync\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Crossfade_Sounds.crossfadeAsync"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.Crossfade_Sounds` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.Crossfade_Sounds",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Crossfade_Sounds.Demo"
+      }
+    },
+    {
+      "id": "s5-folder-sounds",
+      "type": "scripted",
+      "body": "Add a Folder `Sounds` under `Workspace.Crossfade_Sounds.Demo` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.Crossfade_Sounds.Demo",
+        "props": {
+          "Name": "Sounds"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Crossfade_Sounds.Demo.Sounds"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.Crossfade_Sounds.Demo`.",
+      "target": {
+        "path": "Workspace.Crossfade_Sounds.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tCrossfading is an audio editing technique that creates a smooth transition between two audio clips.\n\tDemonstrates crossfading between two sounds indefinitely.\n--]]\n\nlocal crossfadeAsync = require(script.Parent.Parent.crossfadeAsync)\n\nlocal FADE_TIME = 4\nlocal VOLUME = 1\n\nlocal sounds = script.Parent.Sounds\nlocal rainSound = sounds.RainSound\nlocal cricketSound = sounds.CricketSound\n\nlocal function initializeSounds()\n\t-- Start with the rain sound playing\n\trainSound.Volume = VOLUME\n\tcricketSound.Volume = 0\n\n\trainSound:Play()\n\tcricketSound:Play()\nend\n\ninitializeSounds()\n\nwhile true do\n\t-- Wait some time, then crossfade to the cricket sound\n\ttask.wait(5)\n\tcrossfadeAsync(rainSound, cricketSound, FADE_TIME, VOLUME)\n\n\t-- Wait some time, then crossfade to the rain sound\n\ttask.wait(5)\n\tcrossfadeAsync(cricketSound, rainSound, FADE_TIME, VOLUME)\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Crossfade_Sounds.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.Crossfade_Sounds` in the Explorer to see the assembled result."
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "retry-async",
+  "title": "Retry Async",
+  "goal": "`retryAsync` retries function calls that may fail, and provides various arguments to describe the retry behavior. The first argument is the function it calls repeatedly until it either succeeds or is called the maximum number of times specified by `maxAttempts`. The optional third and fourth arguments allow you to customize the initial pause time and the exponent used to increase the pause time with each retry. The optional fifth argument allows you to specify a function call handler, used to make each function call (default is pcall). `retryAsync` returns a boolean indicating whether the final call to the given function was successful, and the return values of the final call (if successful) or the error message (if not successful).",
+  "tags": [
+    "Utility",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "`retryAsync` retries function calls that may fail, and provides various arguments to describe the retry behavior. The first argument is the function it calls repeatedly until it either succeeds or is called the maximum number of times specified by `maxAttempts`. The optional third and fourth arguments allow you to customize the initial pause time and the exponent used to increase the pause time with each retry. The optional fifth argument allows you to specify a function call handler, used to make each function call (default is pcall). `retryAsync` returns a boolean indicating whether the final call to the given function was successful, and the return values of the final call (if successful) or the error message (if not successful).\n\nDemoScript provides an example using retryAsync to call a function that intentionally has a chance to error. Results of each call and the final result are printed.\n\nThis sample was ported from `solutions-samples/retry-async`. Every step is deterministic \u2014 watch the components assemble under `Workspace.RetryAsync`."
+    },
+    {
+      "id": "s2-folder-retryasync",
+      "type": "scripted",
+      "body": "Add a Folder `RetryAsync` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "RetryAsync"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.RetryAsync"
+      }
+    },
+    {
+      "id": "s3-retryasync",
+      "type": "codeEdit",
+      "body": "Add `retryAsync` (ModuleScript) under `Workspace.RetryAsync`.",
+      "target": {
+        "path": "Workspace.RetryAsync.retryAsync",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tFunction to call and retry a given function, up to maxAttempts times.\n\tThis function waits pauseConstant + (pauseExponent ^ numAttempts) between retries for progressive exponential backoff.\n\tCalls are made with the functionCallHandler (default: pcall)\n\tand the results of this (in the form of success, errorMessage or ...) are returned.\n--]]\n\ntype Function = (...any) -> ...any\nexport type FunctionHandler = (...any) -> (boolean, ...any)\n\nlocal function retryAsync(\n\tfunc: Function,\n\tmaxAttempts: number,\n\toptionalPauseConstant: number?,\n\toptionalPauseExponent: number?,\n\toptionalFunctionCallHandler: ((Function) -> (boolean, ...any))?\n): (boolean, ...any)\n\t-- Using separate variables to satisfy the type checker\n\tlocal pauseConstant: number = optionalPauseConstant or 0\n\tlocal pauseExponent: number = optionalPauseExponent or 0\n\tlocal functionCallHandler: FunctionHandler = optionalFunctionCallHandler or pcall\n\n\tlocal attempts = 0\n\tlocal success: boolean, result: { any }\n\n\twhile attempts < maxAttempts do\n\t\tattempts = attempts + 1\n\n\t\tlocal returnValues: { any }\n\n\t\treturnValues = { functionCallHandler(func) }\n\n\t\tsuccess = table.remove(returnValues, 1) :: boolean\n\t\tresult = returnValues\n\n\t\tif success then\n\t\t\tbreak\n\t\tend\n\n\t\tlocal pauseTime = pauseConstant + (pauseExponent ^ attempts)\n\n\t\tif attempts < maxAttempts then\n\t\t\ttask.wait(pauseTime)\n\t\tend\n\tend\n\n\tif success then\n\t\treturn success, table.unpack(result)\n\telse\n\t\tlocal errorMessage = not success and result[1] :: any or nil\n\t\treturn success, errorMessage :: any\n\tend\nend\n\nreturn retryAsync\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.RetryAsync.retryAsync"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.RetryAsync` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.RetryAsync",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.RetryAsync.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.RetryAsync.Demo`.",
+      "target": {
+        "path": "Workspace.RetryAsync.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\nlocal retryAsync = require(script.Parent.Parent.retryAsync)\n\n--[[\n\tThe retry flow for these values of 3, 1, and 2 look like:\n\n\tInitial attempt: Instant (failure)\n\n\tRetry 1:\n\t\twait 3  (1 + 2^1)\n\t\tattempt 2 (failure)\n\n\tRetry 2:\n\t\twait 5  (1 + 2^2)\n\t\tattempt 3 (failure)\n\n\tAccept failure\n--]]\n\nlocal MAX_ATTEMPTS = 3 -- Make up to 3 attempts (Initial attempt + 2 retries)\nlocal RETRY_PAUSE_CONSTANT = 1 -- Base wait time between attempts\nlocal RETRY_PAUSE_EXPONENT_BASE = 2 -- Base number raised to the power of the retry number for exponential backoff\n\nlocal function functionThatMightError(someParameter)\n\tif math.random(2) == 1 then\n\t\tprint(\"Erroring\")\n\t\terror(\"Custom ERROR message!\")\n\telse\n\t\tprint(\"Succeeding\")\n\t\treturn \"Custom SUCCESS result!\", someParameter\n\tend\nend\n\nwhile true do\n\tlocal attempts = 0\n\tlocal lastAttemptedAt = os.clock()\n\n\tlocal success, result, someParameter = retryAsync(function()\n\t\tattempts += 1\n\n\t\tlocal nowTime = os.clock()\n\t\tlocal timeSinceLastAttempt = math.round(nowTime - lastAttemptedAt)\n\t\tlastAttemptedAt = nowTime\n\t\tlocal secondsLaterString = if timeSinceLastAttempt > 0\n\t\t\tthen string.format(\"(%d seconds later) \", timeSinceLastAttempt)\n\t\t\telse \"\"\n\n\t\tprint(string.format(\"%sAttempt %d\", secondsLaterString, attempts))\n\t\treturn functionThatMightError(\"Some parameter\")\n\tend, MAX_ATTEMPTS, RETRY_PAUSE_CONSTANT, RETRY_PAUSE_EXPONENT_BASE)\n\n\tlocal successString = if success then \"Succeeded\" else \"Failed\"\n\tlocal pluralString = if attempts > 1 then \"s\" else \"\"\n\tprint(\n\t\tstring.format(\n\t\t\t\"\\n%s after %d attempt%s!\\nResult: '%s'\\nsomeParameter: '%s'\",\n\t\t\tsuccessString,\n\t\t\tattempts,\n\t\t\tpluralString,\n\t\t\tresult,\n\t\t\ttostring(someParameter)\n\t\t)\n\t)\n\ttask.wait(5) -- Seconds between demos\n\tprint(\"\\nNEXT DEMO\")\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.RetryAsync.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.RetryAsync` in the Explorer to see the assembled result."
+    }
+  ]
+}

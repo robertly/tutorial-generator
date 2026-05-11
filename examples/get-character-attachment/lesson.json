@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "get-character-attachment",
+  "title": "Get Character Attachment",
+  "goal": "Returns the attachment corresponding with AttachmentName under the character.",
+  "tags": [
+    "Player & Character",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Returns the attachment corresponding with AttachmentName under the character.\n\nThe DemoScript uses getCharacterAttachment to correctly attach a pizza slice to a character's RightGripAttachment.\n\nThis sample was ported from `solutions-samples/get-character-attachment`. Every step is deterministic \u2014 watch the components assemble under `Workspace.GetCharacterAttachment`."
+    },
+    {
+      "id": "s2-folder-getcharacterattachment",
+      "type": "scripted",
+      "body": "Add a Folder `GetCharacterAttachment` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "GetCharacterAttachment"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.GetCharacterAttachment"
+      }
+    },
+    {
+      "id": "s3-getcharacterattachment",
+      "type": "codeEdit",
+      "body": "Add `getCharacterAttachment` (ModuleScript) under `Workspace.GetCharacterAttachment`.",
+      "target": {
+        "path": "Workspace.GetCharacterAttachment.getCharacterAttachment",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tReturns the attachment corresponding with AttachmentName under the character\n--]]\n\n-- There can be multiple attachments with the same name in a character.\n-- This table specifies exactly where to find the attachment point on the character\n-- given an attachment name. R6 and R15 characters have differently named parts, so\n-- we must include them both here.\nlocal ATTACHMENT_LOCATIONS = {\n\tLeftGripAttachment = { R6 = \"Left Arm\", R15 = \"LeftHand\" },\n\tLeftShoulderAttachment = { R6 = \"Left Arm\", R15 = \"LeftUpperArm\" },\n\tRightGripAttachment = { R6 = \"Right Arm\", R15 = \"RightHand\" },\n\tRightShoulderAttachment = { R6 = \"Right Arm\", R15 = \"RightUpperArm\" },\n\tBodyFrontAttachment = { R6 = \"Torso\", R15 = \"UpperTorso\" },\n\tBodyBackAttachment = { R6 = \"Torso\", R15 = \"UpperTorso\" },\n\tLeftCollarAttachment = { R6 = \"Torso\", R15 = \"UpperTorso\" },\n\tRightCollarAttachment = { R6 = \"Torso\", R15 = \"UpperTorso\" },\n\tNeckAttachment = { R6 = \"Torso\", R15 = \"UpperTorso\" },\n\tWaistCenterAttachment = { R6 = \"Torso\", R15 = \"LowerTorso\" },\n\tWaistFrontAttachment = { R6 = \"Torso\", R15 = \"LowerTorso\" },\n\tWaistBackAttachment = { R6 = \"Torso\", R15 = \"LowerTorso\" },\n\tFaceCenterAttachment = { R6 = \"Head\", R15 = \"Head\" },\n\tFaceFrontAttachment = { R6 = \"Head\", R15 = \"Head\" },\n\tHairAttachment = { R6 = \"Head\", R15 = \"Head\" },\n\tHatAttachment = { R6 = \"Head\", R15 = \"Head\" },\n}\n\nlocal function getCharacterAttachment(character: Model, attachmentName: string)\n\tlocal locations = ATTACHMENT_LOCATIONS[attachmentName]\n\tassert(locations, string.format(\"Invalid attachmentName given: %s\", attachmentName))\n\tassert(character, \"Character does not exist\")\n\n\tlocal humanoid: Humanoid = character:FindFirstChild(\"Humanoid\") :: Humanoid\n\n\tlocal parentPartName = locations[humanoid.RigType.Name]\n\tlocal parentPart = character:FindFirstChild(parentPartName)\n\n\tlocal attachment = parentPart:FindFirstChild(attachmentName)\n\n\treturn attachment\nend\n\nreturn getCharacterAttachment\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.GetCharacterAttachment.getCharacterAttachment"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.GetCharacterAttachment` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.GetCharacterAttachment",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.GetCharacterAttachment.Demo"
+      }
+    },
+    {
+      "id": "s5-clone-pizza",
+      "type": "scripted",
+      "body": "Clone the bundled `Pizza` instance tree into `Workspace.GetCharacterAttachment.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.get-character-attachment.Pizza",
+        "parent": "Workspace.GetCharacterAttachment.Demo",
+        "name": "Pizza"
+      },
+      "focus": {
+        "selection": "Workspace.GetCharacterAttachment.Demo.Pizza"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.GetCharacterAttachment.Demo`.",
+      "target": {
+        "path": "Workspace.GetCharacterAttachment.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tReturns the attachment corresponding with AttachmentName under the character.\n\tThe DemoScript uses getCharacterAttachment to correctly attach a pizza slice to a character's RightGripAttachment.\n--]]\n\nlocal Players = game:GetService(\"Players\")\nlocal Workspace = game:GetService(\"Workspace\")\n\nlocal getCharacterAttachment = require(script.Parent.Parent.getCharacterAttachment)\n\nlocal pizzaTemplate = script.Parent.Pizza\nlocal characterAttachmentName = \"RightGripAttachment\"\n\npizzaTemplate.Parent = nil\n\n-- Creates a RigidConstraint between two attachments\nlocal function rigidlyAttach(primaryAttachment: Attachment, secondaryAttachment: Attachment)\n\tlocal rigidConstraint = Instance.new(\"RigidConstraint\")\n\trigidConstraint.Attachment0 = primaryAttachment\n\trigidConstraint.Attachment1 = secondaryAttachment\n\trigidConstraint.Parent = secondaryAttachment.Parent\n\trigidConstraint.Enabled = true\n\n\treturn rigidConstraint\nend\n\nlocal function onPlayerAdded(player: Player)\n\tplayer.CharacterAppearanceLoaded:Connect(function(character: Model)\n\t\tlocal pizzaSlice = pizzaTemplate:Clone()\n\t\tlocal pizzaAttachment = pizzaSlice.Attachment\n\n\t\t-- Use getCharacterAttachment to get the correct attachment from the character\n\t\tlocal characterAttachment = getCharacterAttachment(character, characterAttachmentName)\n\t\t-- Create a rigid constrain between the pizza and character attachments\n\t\trigidlyAttach(pizzaAttachment, characterAttachment)\n\n\t\tpizzaSlice.Parent = Workspace\n\tend)\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.GetCharacterAttachment.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.GetCharacterAttachment` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.get-character-attachment.Pizza",
+      "name": "Pizza",
+      "description": "Bundled instance tree from solutions-samples/get-character-attachment."
+    }
+  ]
+}

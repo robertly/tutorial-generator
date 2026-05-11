@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "format-time",
+  "title": "Format Time",
+  "goal": "Formats a number of seconds into a pretty string of Hours, Minutes, and Seconds. If all hours are 0, they are omitted. If all hours and all minutes are 0, they are both omitted. Leading 0's from hours are removed. If hours are omitted, leading 0's from minutes are removed. If hours and minutes are omitted, leading 0's from seconds are removed.",
+  "tags": [
+    "Utility",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Formats a number of seconds into a pretty string of Hours, Minutes, and Seconds. If all hours are 0, they are omitted. If all hours and all minutes are 0, they are both omitted. Leading 0's from hours are removed. If hours are omitted, leading 0's from minutes are removed. If hours and minutes are omitted, leading 0's from seconds are removed.\n\nThe DemoScript uses formatTime to display a timer that rapidly increases on a Part.\n\nThis sample was ported from `solutions-samples/format-time`. Every step is deterministic \u2014 watch the components assemble under `Workspace.FormatTime`."
+    },
+    {
+      "id": "s2-folder-formattime",
+      "type": "scripted",
+      "body": "Add a Folder `FormatTime` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "FormatTime"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.FormatTime"
+      }
+    },
+    {
+      "id": "s3-formattime",
+      "type": "codeEdit",
+      "body": "Add `formatTime` (ModuleScript) under `Workspace.FormatTime`.",
+      "target": {
+        "path": "Workspace.FormatTime.formatTime",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tFormats a number of seconds into a pretty string of Hours, Minutes, and Seconds.\n\tIf all hours are 0, they are omitted.\n\tIf all hours and all minutes are 0, they are both omitted.\n\tLeading 0's from hours are removed.\n\tIf hours are omitted, leading 0's from minutes are removed.\n\tIf hours and minutes are omitted, leading 0's from seconds are removed.\n\n\tExamples:\n\n\tlocal HOUR_1 = 60 * 60\n\tlocal HOUR_23 = 23 * HOUR_1\n\tlocal MINUTE_1 = 60\n\tlocal MINUTE_59 = 59 * MINUTE_1\n\n\tformatTime(HOUR_1 + 0 + 0) -- 1:00:00\n\tformatTime(HOUR_23 + MINUTE_59 + 59) -- 23:59:59\n\tformatTime(0 + MINUTE_59 + 59) -- 59:59\n\tformatTime(0 + MINUTE_1 + 0) -- 1:00\n\tformatTime(0 + 0 + 59) -- 59\n\tformatTime(0 + 0 + 1) -- 1\n\tformatTime(0 + 0 + 0) -- 0\n--]]\n\nlocal MAX_SUPPORTED_SECONDS = 86400 -- 24 hours\n\nlocal function formatTime(seconds: number)\n\tlocal clampedSeconds = math.clamp(seconds, 0, MAX_SUPPORTED_SECONDS)\n\n\tif clampedSeconds ~= seconds then\n\t\twarn(\n\t\t\tstring.format(\n\t\t\t\t\"Seconds (%d) is outside supported range [0, %d]. Using (%d) instead.\",\n\t\t\t\tseconds,\n\t\t\t\tMAX_SUPPORTED_SECONDS,\n\t\t\t\tclampedSeconds\n\t\t\t)\n\t\t)\n\tend\n\n\tlocal dateTime = DateTime.fromUnixTimestamp(clampedSeconds)\n\tlocal universalTime = dateTime:ToUniversalTime()\n\n\tlocal formattedTime\n\tif universalTime.Hour > 0 then\n\t\tformattedTime = dateTime:FormatUniversalTime(\"H:mm:ss\", \"zh-cn\")\n\telseif universalTime.Minute > 0 then\n\t\tformattedTime = dateTime:FormatUniversalTime(\"m:ss\", \"zh-cn\")\n\telse\n\t\tformattedTime = dateTime:FormatUniversalTime(\"s\", \"zh-cn\")\n\tend\n\n\treturn formattedTime\nend\n\nreturn formatTime\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.FormatTime.formatTime"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.FormatTime` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.FormatTime",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.FormatTime.Demo"
+      }
+    },
+    {
+      "id": "s5-clone-timerdisplay",
+      "type": "scripted",
+      "body": "Clone the bundled `TimerDisplay` instance tree into `Workspace.FormatTime.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.format-time.TimerDisplay",
+        "parent": "Workspace.FormatTime.Demo",
+        "name": "TimerDisplay"
+      },
+      "focus": {
+        "selection": "Workspace.FormatTime.Demo.TimerDisplay"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.FormatTime.Demo`.",
+      "target": {
+        "path": "Workspace.FormatTime.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tFormats a number of seconds into a pretty string of Hours, Minutes, and Seconds.\n\tIf all hours are 0, they are omitted. If all hours and all minutes are 0, they are both omitted.\n\tLeading 0's from hours are removed. If hours are omitted, leading 0's from minutes are removed.\n\tIf hours and minutes are omitted, leading 0's from seconds are removed.\n\n\tThe DemoScript uses formatTime to display a timer that rapidly increases on a Part.\n--]]\n\nlocal formatTime = require(script.Parent.Parent.formatTime)\n\nlocal timerDisplay = script.Parent.TimerDisplay\nlocal timerTextLabel = timerDisplay.SurfaceGui.TextLabel\nlocal timerTimeSec = 0\n\n-- Update the TextLabel's text using formatTime\n-- 86400 = 24 hours (max supported time)\nwhile timerTimeSec < 86400 do\n\ttimerTextLabel.Text = formatTime(timerTimeSec)\n\ttask.wait()\n\ttimerTimeSec = timerTimeSec + 1\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.FormatTime.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.FormatTime` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.format-time.TimerDisplay",
+      "name": "TimerDisplay",
+      "description": "Bundled instance tree from solutions-samples/format-time."
+    }
+  ]
+}

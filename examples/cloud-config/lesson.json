@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "cloud-config",
+  "title": "Cloud Config",
+  "goal": "Demonstrates a cloud configuration system where flag values can be set in DataStore and are automatically polled for updates by live servers.",
+  "tags": [
+    "Cloud Services",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates a cloud configuration system where flag values can be set in DataStore and are automatically polled for updates by live servers.\n\nThis sample was ported from `solutions-samples/cloud-config`. Every step is deterministic \u2014 watch the components assemble under `Workspace.CloudConfig`."
+    },
+    {
+      "id": "s2-folder-cloudconfig",
+      "type": "scripted",
+      "body": "Add a Folder `CloudConfig` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "CloudConfig"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CloudConfig"
+      }
+    },
+    {
+      "id": "s3-cloudconfig",
+      "type": "codeEdit",
+      "body": "Add `CloudConfig` (ModuleScript) under `Workspace.CloudConfig`.",
+      "target": {
+        "path": "Workspace.CloudConfig.CloudConfig",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal DataStoreService = game:GetService(\"DataStoreService\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal Signal = require(script.Signal)\n\n-- In a similar vein to private vars/functions in Luau, the DataStore name is prefixed with\n-- an underscore as it is not meant to be accessed directly. Adding/setting/removing keys\n-- should be done using the setKeyAsync function.\nlocal DATA_STORE_NAME = \"_CloudConfig\"\nlocal DATA_STORE_KEY = \"Configs\"\nlocal DATA_STORE_READ_INTERVAL = 60\n\n-- Key/value pairs are stored as attributes so they will automatically replicated to the client.\n-- They must also be able to be serialized as JSON for storage in DataStore\n-- Since userdata are not able to be serialized as JSON, the types allowed for values have been limited\nlocal ALLOWED_VALUE_TYPES = {\n\t\"number\",\n\t\"boolean\",\n\t\"string\",\n\t\"nil\",\n}\n\nlocal configDataStore = if RunService:IsServer() then DataStoreService:GetDataStore(DATA_STORE_NAME) else nil\n\nlocal CloudConfig = {\n\t_configAttributeHolder = script.ConfigAttributeHolder,\n\t_changedSignals = {},\n\t_polling = false,\n\t_updateInProgress = false,\n}\n\n-- Update the locally cached key values from DataStore\nfunction CloudConfig._fetchValuesAsync()\n\tassert(RunService:IsServer(), \"Keys can only be fetched on the server\")\n\n\tlocal dataStore = configDataStore :: DataStore\n\tlocal success, result = pcall(function()\n\t\treturn dataStore:GetAsync(DATA_STORE_KEY)\n\tend)\n\n\tif success and result then\n\t\tfor key, value in result :: { [string]: any } do\n\t\t\tCloudConfig._configAttributeHolder:SetAttribute(key, value)\n\t\tend\n\tend\n\n\tif not success then\n\t\twarn(string.format(\"Failed to fetch key values - %s\", result))\n\tend\nend\n\n-- Start a loop to fetch key values from DataStore every <DATA_STORE_READ_INTERVAL> seconds\nfunction CloudConfig._pollForUpdates()\n\tassert(not CloudConfig._polling, \"CloudConfig module already initialized\")\n\n\ttask.spawn(function()\n\t\t-- Update loop\n\t\twhile true do\n\t\t\tCloudConfig._fetchValuesAsync()\n\t\t\ttask.wait(DATA_STORE_READ_INTERVAL)\n\t\tend\n\tend)\n\n\tCloudConfig._polling = true\nend\n\n-- Add a list of keys to the local cache if they don't exist already\nfunction CloudConfig.setDefaultValues(defaults: { [string]: any })\n\tassert(RunService:IsServer(), \"Config default values must be set on the server\")\n\n\tfor key, defaultValue in defaults do\n\t\tassert(\n\t\t\ttable.find(ALLOWED_VALUE_TYPES, typeof(defaultValue)) ~= nil,\n\t\t\tstring.format(\"Disallowed type '%s' for key: %s\", typeof(defaultValue), key)\n\t\t)\n\n\t\t-- Make sure to not overwrite an already set value with the default value\n\t\tif CloudConfig._configAttributeHolder:GetAttribute(key) ~= nil then\n\t\t\twarn(string.format(\"Config '%s' is already added\", key))\n\t\telse\n\t\t\tCloudConfig._configAttributeHolder:SetAttribute(key, defaultValue)\n\t\tend\n\tend\nend\n\n-- Return the current cached value of a key\nfunction CloudConfig.getValue(key: string)\n\treturn CloudConfig._configAttributeHolder:GetAttribute(key)\nend\n\n-- Return a signal that fires when the specified key changes\nfunction CloudConfig.getValueChangedSignal(key: string)\n\tlocal changedSignal = CloudConfig._changedSignals[key]\n\tif not changedSignal then\n\t\t-- Create a custom signal to fire when the attribute changes. This allows\n\t\t-- the new value of the key to be passed to the connected function since\n\t\t-- this is not done by default when using :GetAttributeChangedSignal()\n\t\tchangedSignal = Signal.new()\n\t\tCloudConfig._changedSignals[key] = changedSignal\n\n\t\tCloudConfig._configAttributeHolder:GetAttributeChangedSignal(key):Connect(function()\n\t\t\tlocal newValue = CloudConfig._configAttributeHolder:GetAttribute(key)\n\t\t\tchangedSignal:Fire(newValue)\n\t\tend)\n\tend\n\n\treturn changedSignal\nend\n\n-- This function should be called in studio to set the value of a key.\n-- This directly sets the value in the cloud, attributes are only set at runtime\n-- during the polling loop or when the default key values are set.\nfunction CloudConfig.setValueAsync(key: string, value: any)\n\tassert(RunService:IsStudio(), \"Keys must be set in studio\")\n\tassert(not CloudConfig._updateInProgress, \"Key update already in progress\")\n\tassert(\n\t\ttable.find(ALLOWED_VALUE_TYPES, typeof(value)) ~= nil,\n\t\tstring.format(\"Disallowed type '%s' for key: %s\", typeof(value), key)\n\t)\n\n\t-- Since this module does not do any sort of queuing or management to resolve multiple writes at\n\t-- once, we disable this function while a write is in progress to prevent keys getting overwritten\n\tCloudConfig._updateInProgress = true\n\tlocal oldValue = nil\n\tlocal dataStore = configDataStore :: DataStore\n\tlocal success, result = pcall(function()\n\t\tdataStore:UpdateAsync(DATA_STORE_KEY, function(oldConfig)\n\t\t\tlocal newConfig = oldConfig or {}\n\t\t\toldValue = newConfig[key]\n\t\t\tnewConfig[key] = value\n\n\t\t\treturn newConfig\n\t\tend)\n\tend)\n\tCloudConfig._updateInProgress = false\n\n\tif success then\n\t\tprint(string.format(\"Changed key '%s' from '%s' to '%s\", key, tostring(oldValue), tostring(value)))\n\telse\n\t\terror(result)\n\tend\nend\n\nif RunService:IsServer() and RunService:IsRunMode() then\n\tCloudConfig._pollForUpdates()\nend\n\nreturn CloudConfig\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CloudConfig.CloudConfig"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.CloudConfig` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.CloudConfig",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CloudConfig.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.CloudConfig.Demo`.",
+      "target": {
+        "path": "Workspace.CloudConfig.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\n--[[\n\tThis module uses DataStores and must have access to Studio APIs to be used.\n\tA guide on enabling access can be found here:\n\thttps://create.roblox.com/docs/tutorials/scripting/intermediate-scripting/saving-data\n\n\tSetup a demo flag by running this code snippet in the command line:\n\trequire(path.to.CloudConfig).setValueAsync(\"DemoFlag\", \"Demo value\")\n--]]\n\nlocal CloudConfig = require(script.Parent.Parent.CloudConfig)\nlocal DEMO_FLAG = \"DemoFlag\"\n\nCloudConfig.getValueChangedSignal(DEMO_FLAG):Connect(function(value)\n\tprint(\"Demo flag changed to:\", value)\nend)\n\nwhile true do\n\tlocal demoFlagValue = CloudConfig.getValue(DEMO_FLAG)\n\tprint(\"Demo flag has a value of:\", demoFlagValue)\n\ttask.wait(5)\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CloudConfig.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.CloudConfig` in the Explorer to see the assembled result."
+    }
+  ]
+}

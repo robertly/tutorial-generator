@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "id": "portal-door",
+  "title": "Portal Door",
+  "goal": "Demonstrates a portal door system that allows a player to walk into a small exterior building and appear inside a larger interior.",
+  "tags": [
+    "General",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates a portal door system that allows a player to walk into a small exterior building and appear inside a larger interior.\n\nThis sample was ported from `solutions-samples/portal-door`. Every step is deterministic \u2014 watch the components assemble under `Workspace.PortalDoor`."
+    },
+    {
+      "id": "s2-folder-portaldoor",
+      "type": "scripted",
+      "body": "Add a Folder `PortalDoor` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "PortalDoor"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PortalDoor"
+      }
+    },
+    {
+      "id": "s3-portaldoor",
+      "type": "codeEdit",
+      "body": "Add `PortalDoor` (Script) under `Workspace.PortalDoor`.",
+      "target": {
+        "path": "Workspace.PortalDoor.PortalDoor",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\nlocal GuiService = game:GetService(\"GuiService\")\nlocal Players = game:GetService(\"Players\")\nlocal TweenService = game:GetService(\"TweenService\")\nlocal Workspace = game:GetService(\"Workspace\")\n\nlocal player = Players.LocalPlayer :: Player\nlocal playerScripts = player:FindFirstChild(\"PlayerScripts\") :: PlayerScripts\nlocal playerModuleBase = playerScripts:WaitForChild(\"PlayerModule\") :: ModuleScript\nlocal playerModule = require(playerModuleBase) :: any\nlocal playerGui = player.PlayerGui\n\nlocal instances = script.Parent.Instances\nlocal interior = instances:WaitForChild(\"Interior\")\nlocal exterior = instances:WaitForChild(\"Exterior\")\nlocal doorGui = instances.PortalDoorGui :: ScreenGui\n\nlocal ENTRY_ANIMATION_TIME = 0.75\nlocal ENTRY_CAMERA_END_OFFSET = CFrame.new(0, 1, -3) * CFrame.Angles(0, math.rad(180), 0)\nlocal EXIT_ANIMATION_TIME = 0.75\nlocal EXIT_CAMERA_START_OFFSET = CFrame.new(0, 1, 0)\nlocal EXIT_CAMERA_END_OFFSET = CFrame.new(0, 2, -3) * CFrame.Angles(math.rad(-20), 0, 0)\n\nlocal ENTRY_EXTERIOR_OFFSET = Vector3.new(0, 0, -3)\nlocal ENTRY_INTERIOR_OFFSET = Vector3.new(0, 0, 3)\nlocal EXIT_EXTERIOR_OFFSET = Vector3.new(0, 0, -8)\n\nlocal ENTRY_TWEEN_INFO = TweenInfo.new(ENTRY_ANIMATION_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)\nlocal EXIT_TWEEN_INFO = TweenInfo.new(EXIT_ANIMATION_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)\n\nlocal isWalkingThroughDoors = false\n\nlocal function setCharacterControlsEnabled(enabled: boolean)\n\t-- Set desktop controls enabled through the PlayerModule\n\tlocal controls = playerModule:GetControls()\n\tcontrols:Enable(enabled)\n\t-- Set touch controls enabled\n\tGuiService.TouchControlsEnabled = enabled\nend\n\nlocal function setCameraControlsEnabled(enabled: boolean)\n\t-- Toggle between Scriptable and Custom camera types to disable or enable camera control respectively\n\tif Workspace.CurrentCamera then\n\t\tWorkspace.CurrentCamera.CameraType = if enabled then Enum.CameraType.Custom else Enum.CameraType.Scriptable\n\tend\nend\n\nlocal function setDoorOpen(door, open: boolean)\n\t-- When a door is open, it should be able to be walked through and the proximity prompt should be disabled\n\t-- When the door is closed, the opposite applies\n\tdoor.Entrance.ProximityPrompt.Enabled = not open\n\tdoor.Entrance.CanCollide = not open\nend\n\nlocal function walkIntoDoor(character, door)\n\tlocal doorExteriorPosition = door.Entrance.CFrame:PointToWorldSpace(ENTRY_EXTERIOR_OFFSET)\n\tlocal doorInteriorPosition = door.Entrance.CFrame:PointToWorldSpace(ENTRY_INTERIOR_OFFSET)\n\tlocal humanoid = character:FindFirstChildOfClass(\"Humanoid\") :: Humanoid?\n\tif humanoid then\n\t\ttask.spawn(function()\n\t\t\t-- Walk in front of the door before walking into it\n\t\t\thumanoid:MoveTo(doorExteriorPosition)\n\t\t\thumanoid.MoveToFinished:Wait()\n\t\t\thumanoid:MoveTo(doorInteriorPosition)\n\t\tend)\n\tend\nend\n\nlocal function walkOutOfDoor(character, door)\n\tlocal doorExteriorPosition = door.Entrance.CFrame:PointToWorldSpace(EXIT_EXTERIOR_OFFSET)\n\tlocal humanoid = character:FindFirstChildOfClass(\"Humanoid\") :: Humanoid?\n\tif humanoid then\n\t\thumanoid:MoveTo(doorExteriorPosition)\n\tend\nend\n\nlocal function zoomIntoDoor(door)\n\tlocal camera = Workspace.CurrentCamera :: Camera\n\tlocal entrance = door.Entrance :: BasePart\n\tlocal zoomCFrame = entrance.CFrame * ENTRY_CAMERA_END_OFFSET\n\tlocal cameraTween = TweenService:Create(camera, ENTRY_TWEEN_INFO, { CFrame = zoomCFrame })\n\n\tcameraTween:Play()\nend\n\nlocal function zoomOutOfDoor(door)\n\tlocal camera = Workspace.CurrentCamera :: Camera\n\tlocal entrance = door.Entrance :: BasePart\n\tlocal zoomCFrame = entrance.CFrame * EXIT_CAMERA_END_OFFSET\n\tlocal cameraTween = TweenService:Create(camera, EXIT_TWEEN_INFO, { CFrame = zoomCFrame })\n\n\tcamera.CFrame = entrance.CFrame * EXIT_CAMERA_START_OFFSET\n\tcameraTween:Play()\nend\n\nlocal function fadeOutScreen()\n\tlocal frame = doorGui:FindFirstChild(\"Frame\") :: Frame\n\tlocal fadeTween = TweenService:Create(frame, ENTRY_TWEEN_INFO, { BackgroundTransparency = 0 })\n\tfadeTween:Play()\nend\n\nlocal function fadeInScreen()\n\tlocal frame = doorGui:FindFirstChild(\"Frame\") :: Frame\n\tlocal fadeTween = TweenService:Create(frame, EXIT_TWEEN_INFO, { BackgroundTransparency = 1 })\n\tfadeTween:Play()\nend\n\nlocal function walkThroughDoorsAsync(doorIn, doorOut)\n\tif isWalkingThroughDoors then\n\t\treturn\n\tend\n\n\tif not player.Character then\n\t\treturn\n\tend\n\n\tlocal character = player.Character :: Model\n\n\tisWalkingThroughDoors = true\n\t-- Disable character and camera controls\n\tsetCharacterControlsEnabled(false)\n\tsetCameraControlsEnabled(false)\n\t-- Disable interaction with the doors and allow them to be walked through\n\tsetDoorOpen(doorIn, true)\n\tsetDoorOpen(doorOut, true)\n\n\t-- Play the walk in, camera, and screen fade animations\n\tzoomIntoDoor(doorIn)\n\twalkIntoDoor(character, doorIn)\n\tfadeOutScreen()\n\ttask.wait(ENTRY_ANIMATION_TIME)\n\n\t-- Teleport the character to the door they are exiting from\n\tcharacter:PivotTo(doorOut.Entrance.CFrame)\n\n\t-- Play the walk out, camera, and screen fade animations\n\tzoomOutOfDoor(doorOut)\n\twalkOutOfDoor(character, doorOut)\n\tfadeInScreen()\n\ttask.wait(EXIT_ANIMATION_TIME)\n\n\t-- Re-enable character and camera controls\n\tsetCharacterControlsEnabled(true)\n\tsetCameraControlsEnabled(true)\n\t-- Allow interaction with the doors and disallow them to be walked through\n\tsetDoorOpen(doorIn, false)\n\tsetDoorOpen(doorOut, false)\n\tisWalkingThroughDoors = false\nend\n\nlocal function initialize()\n\texterior.Door.Entrance.ProximityPrompt.Triggered:Connect(function()\n\t\twalkThroughDoorsAsync(exterior.Door, interior.Door)\n\tend)\n\n\tinterior.Door.Entrance.ProximityPrompt.Triggered:Connect(function()\n\t\twalkThroughDoorsAsync(interior.Door, exterior.Door)\n\tend)\n\n\tdoorGui.Parent = playerGui\nend\n\ninitialize()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PortalDoor.PortalDoor"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-instances",
+      "type": "scripted",
+      "body": "Add a Folder `Instances` under `Workspace.PortalDoor` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.PortalDoor",
+        "props": {
+          "Name": "Instances"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PortalDoor.Instances"
+      }
+    },
+    {
+      "id": "s5-clone-interior",
+      "type": "scripted",
+      "body": "Clone the bundled `Interior` instance tree into `Workspace.PortalDoor.Instances`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.portal-door.Interior",
+        "parent": "Workspace.PortalDoor.Instances",
+        "name": "Interior"
+      },
+      "focus": {
+        "selection": "Workspace.PortalDoor.Instances.Interior"
+      }
+    },
+    {
+      "id": "s6-clone-exterior",
+      "type": "scripted",
+      "body": "Clone the bundled `Exterior` instance tree into `Workspace.PortalDoor.Instances`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.portal-door.Exterior",
+        "parent": "Workspace.PortalDoor.Instances",
+        "name": "Exterior"
+      },
+      "focus": {
+        "selection": "Workspace.PortalDoor.Instances.Exterior"
+      }
+    },
+    {
+      "id": "s7-clone-portaldoorgui",
+      "type": "scripted",
+      "body": "Clone the bundled `PortalDoorGui` instance tree into `Workspace.PortalDoor.Instances`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.portal-door.PortalDoorGui",
+        "parent": "Workspace.PortalDoor.Instances",
+        "name": "PortalDoorGui"
+      },
+      "focus": {
+        "selection": "Workspace.PortalDoor.Instances.PortalDoorGui"
+      }
+    },
+    {
+      "id": "s8-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.PortalDoor` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.portal-door.Interior",
+      "name": "Interior",
+      "description": "Bundled instance tree from solutions-samples/portal-door."
+    },
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.portal-door.Exterior",
+      "name": "Exterior",
+      "description": "Bundled instance tree from solutions-samples/portal-door."
+    },
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.portal-door.PortalDoorGui",
+      "name": "PortalDoorGui",
+      "description": "Bundled instance tree from solutions-samples/portal-door."
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "id": "donation-leaderboard",
+  "title": "Donation Leaderboard",
+  "goal": "An example of a simple donation leaderboard. DevProducts IDs can be placed in the DonationProducts ModuleScript and will be displayed on the leaderboard to purchase. Upon purchase, the player's donation amount is incremented based on how many robux were spent.",
+  "tags": [
+    "General",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "An example of a simple donation leaderboard. DevProducts IDs can be placed in the DonationProducts ModuleScript and will be displayed on the leaderboard to purchase. Upon purchase, the player's donation amount is incremented based on how many robux were spent.\n\nThis sample was ported from `solutions-samples/donation-leaderboard`. Every step is deterministic \u2014 watch the components assemble under `Workspace.DonationLeaderboard`."
+    },
+    {
+      "id": "s2-folder-donationleaderboard",
+      "type": "scripted",
+      "body": "Add a Folder `DonationLeaderboard` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "DonationLeaderboard"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.DonationLeaderboard"
+      }
+    },
+    {
+      "id": "s3-client",
+      "type": "codeEdit",
+      "body": "Add `Client` (LocalScript) under `Workspace.DonationLeaderboard`.",
+      "target": {
+        "path": "Workspace.DonationLeaderboard.Client",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "--!strict\n\nlocal MarketplaceService = game:GetService(\"MarketplaceService\")\nlocal Players = game:GetService(\"Players\")\n\nlocal donationProducts = require(script.Parent.DonationProducts)\nlocal instances = script.Parent:WaitForChild(\"Instances\")\n\nlocal player = Players.LocalPlayer :: Player\nlocal playerGui = player:FindFirstChild(\"PlayerGui\") :: PlayerGui\nlocal leaderboard = script.Parent:WaitForChild(\"Leaderboard\")\nlocal leaderboardGui = leaderboard:WaitForChild(\"Display\"):WaitForChild(\"LeaderboardGui\")\n\nlocal ROBUX_TEMPLATE = utf8.char(0xE002) .. \" %d\" -- char code 0xE002 is reserved for the Robux icon\nlocal ASSET_TEMPLATE = \"rbxassetid://%d\"\n\n-- Add a button to prompt the pruchase of a DevProduct used for donations\nlocal function addProduct(productId)\n\tlocal success, productInfo = pcall(function()\n\t\treturn MarketplaceService:GetProductInfo(productId, Enum.InfoType.Product)\n\tend)\n\tif not success then\n\t\twarn(`Failed to get info for product {productId}`)\n\t\treturn\n\tend\n\n\tlocal icon = productInfo.IconImageAssetId\n\tlocal price = productInfo.PriceInRobux\n\n\tlocal button = instances.ProductButton:Clone()\n\tbutton.LayoutOrder = price\n\tbutton.ImageLabel.Image = ASSET_TEMPLATE:format(icon)\n\tbutton.RobuxLabel.Text = ROBUX_TEMPLATE:format(price)\n\tbutton.Parent = leaderboardGui.ProductList :: any\n\n\tbutton.MouseButton1Click:Connect(function()\n\t\tMarketplaceService:PromptProductPurchase(player, productId)\n\tend)\nend\n\nlocal function initialize()\n\t-- Parent the leaderboard GUI to playerGui so that buttons inside it can be interacted with\n\tlocal adornee = leaderboardGui.Parent\n\tleaderboardGui.Parent = playerGui :: any\n\tleaderboardGui.Adornee = adornee\n\n\tfor _, productId in donationProducts do\n\t\taddProduct(productId)\n\tend\nend\n\ninitialize()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.DonationLeaderboard.Client"
+        }
+      }
+    },
+    {
+      "id": "s4-server",
+      "type": "codeEdit",
+      "body": "Add `Server` (Script) under `Workspace.DonationLeaderboard`.",
+      "target": {
+        "path": "Workspace.DonationLeaderboard.Server",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--!strict\n\nlocal DataStoreService = game:GetService(\"DataStoreService\")\nlocal MarketplaceService = game:GetService(\"MarketplaceService\")\nlocal Players = game:GetService(\"Players\")\n\nlocal donationProducts = require(script.Parent.DonationProducts)\nlocal formatLargeNumber = require(script.formatLargeNumber)\nlocal retryAsync = require(script.retryAsync)\nlocal instances = script.Parent.Instances\nlocal leaderboard = script.Parent.Leaderboard\n\nlocal USER_ICON_TEMPLATE = \"rbxthumb://type=AvatarHeadShot&id=%d&w=60&h=60\"\nlocal ROBUX_TEMPLATE = utf8.char(0xE002) .. \" %s\"\n\nlocal DATA_STORE_NAME = \"DonationLeaderboard\"\nlocal DATA_STORE = DataStoreService:GetOrderedDataStore(DATA_STORE_NAME)\n\nlocal DISPLAY_COUNT = 100\nlocal UPDATE_INTERVAL = 60\nlocal UPDATE_MAX_ATTEMPTS = 3 -- Make up to 3 attempts (Initial attempt + 2 retries)\nlocal UPDATE_RETRY_PAUSE_CONSTANT = 1 -- Base wait time between attempts\nlocal UPDATE_RETRY_PAUSE_EXPONENT_BASE = 2 -- Base number raised to the power of the retry number for exponential backoff\n\nlocal userIdUsernameCache: { string } = {}\nlocal displayFrames: { Instance } = {}\n\n-- Return the username associated with a userId, caching the results\n-- Returns <unknownXXXXXXXX> if GetNameFromUserIdAsync fails, which can happen when the specified user is banned\nlocal function getUsernameFromUserIdAsync(userId: number): string\n\tif userIdUsernameCache[userId] then\n\t\treturn userIdUsernameCache[userId]\n\telse\n\t\tlocal success, result = pcall(function()\n\t\t\treturn Players:GetNameFromUserIdAsync(userId)\n\t\tend)\n\t\tif success then\n\t\t\tuserIdUsernameCache[userId] = result\n\t\t\treturn result\n\t\telse\n\t\t\treturn string.format(\"<unknown%d>\", userId)\n\t\tend\n\tend\nend\n\n-- Update a display frame with the specified userId and robuxAmount\nlocal function updateDisplayFrameInfoAsync(displayFrame: any, userId: number?, robuxAmount: number?)\n\tif userId and robuxAmount then\n\t\tlocal displayUsername = getUsernameFromUserIdAsync(userId)\n\t\tlocal displayRobuxAmount = string.format(ROBUX_TEMPLATE, formatLargeNumber(robuxAmount))\n\t\tlocal displayIcon = string.format(USER_ICON_TEMPLATE, userId)\n\n\t\tdisplayFrame.UserDisplay.NameLabel.Text = displayUsername\n\t\tdisplayFrame.UserDisplay.IconLabel.Image = displayIcon\n\t\tdisplayFrame.RobuxLabel.Text = displayRobuxAmount\n\n\t\tdisplayFrame.Visible = true\n\telse\n\t\tdisplayFrame.Visible = false\n\tend\nend\n\n-- Create necessary display frames to be used on the leaderboard\nlocal function createDisplayFrames()\n\tfor i = 1, DISPLAY_COUNT do\n\t\tlocal isEven = i % 2 == 0\n\t\tlocal displayFrame = instances.DisplayFrame:Clone()\n\t\tdisplayFrame.BackgroundTransparency = if isEven then 0.9 else 1\n\t\tdisplayFrame.LayoutOrder = i\n\t\tdisplayFrame.UserDisplay.RankLabel.Text = tostring(i)\n\t\tdisplayFrame.Visible = false\n\t\tdisplayFrame.Parent = leaderboard.Display.LeaderboardGui.DonorList :: any\n\n\t\tdisplayFrames[i] = displayFrame\n\tend\nend\n\n-- Retreive the top <DISPLAY_COUNT> donors and display their information on the leaderboard\nlocal function refreshLeaderboardAsync()\n\tlocal success, result = retryAsync(function()\n\t\t-- DataStorePages support up to 100 items per page, so page size must be clamped in the case of DISPLAY_COUNT > 100\n\t\tlocal data = DATA_STORE:GetSortedAsync(false, math.min(DISPLAY_COUNT, 100))\n\t\treturn data\n\tend, UPDATE_MAX_ATTEMPTS, UPDATE_RETRY_PAUSE_CONSTANT, UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\n\tif not success then\n\t\twarn(string.format(\"Failed to retrieve leaderboard data because: %s\", result))\n\t\treturn\n\tend\n\n\tlocal pages = result :: DataStorePages\n\tlocal topDonors = {}\n\n\t-- Pull items from the pages object until we have enough to satisfy DISPLAY_COUNT or run out of pages\n\trepeat\n\t\tlocal currentPage = pages:GetCurrentPage()\n\t\tfor _, data in currentPage do\n\t\t\ttable.insert(topDonors, data)\n\t\tend\n\t\tif pages.IsFinished then\n\t\t\tbreak\n\t\telse\n\t\t\tpages:AdvanceToNextPageAsync()\n\t\tend\n\tuntil #topDonors >= DISPLAY_COUNT\n\n\tfor i = 1, DISPLAY_COUNT do\n\t\tlocal donorData = topDonors[i]\n\t\tlocal displayFrame = displayFrames[i]\n\n\t\tif donorData then\n\t\t\tlocal userId = donorData.key\n\t\t\tlocal robuxAmount = donorData.value\n\t\t\tupdateDisplayFrameInfoAsync(displayFrame, userId, robuxAmount)\n\t\telse\n\t\t\tupdateDisplayFrameInfoAsync(displayFrame, nil, nil)\n\t\tend\n\tend\nend\n\n-- Process DevProduct purchases and increment the leaderboard values\n-- PurchaseGranted is only returned if the DataStore is successfully updated\n-- No checks are made for if the purchaseId has been processed already, meaning a purchase could\n-- be processed twice if the backend fails to record the purchase after PurchaseGranted is returned.\n-- A more robust solution would keep track of purchaseIds to avoid processing multiple times, but\n-- for the sake of simplicity we will accept the shortcomings of this method.\nlocal function processReceipt(receiptInfo: { [string]: any }): Enum.ProductPurchaseDecision\n\tif not table.find(donationProducts, receiptInfo.ProductId) then\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\t-- Make sure the player is in this server\n\tlocal player = Players:GetPlayerByUserId(receiptInfo.PlayerId)\n\tif not player then\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\tlocal success, result = retryAsync(function()\n\t\t-- Make sure the player hasn't left during a retry\n\t\tassert(player.Parent == Players, \"Player left during DataStore update\")\n\t\t-- Increment the value associated with the PlayerId based on how much currency was spent\n\t\t-- Note: CurrencySpent will be 0 in studio because test purchases do not charge anything\n\t\tDATA_STORE:IncrementAsync(tostring(receiptInfo.PlayerId), receiptInfo.CurrencySpent)\n\tend, UPDATE_MAX_ATTEMPTS, UPDATE_RETRY_PAUSE_CONSTANT, UPDATE_RETRY_PAUSE_EXPONENT_BASE)\n\n\tif success then\n\t\t-- If the datastore was successfully updated, confirm that the purchase was successful\n\t\treturn Enum.ProductPurchaseDecision.PurchaseGranted\n\telse\n\t\twarn(`Failed to increment leaderboard value because: {result}`)\n\tend\n\n\treturn Enum.ProductPurchaseDecision.NotProcessedYet\nend\n\nlocal function initialize()\n\t-- Note: this may overwrite or be overwritten by other code that processes DevProduct receipts\n\t-- A centralized purchase handler can be used to avoid this issue\n\tMarketplaceService.ProcessReceipt = processReceipt\n\n\tcreateDisplayFrames()\n\n\ttask.spawn(function()\n\t\twhile true do\n\t\t\trefreshLeaderboardAsync()\n\t\t\ttask.wait(UPDATE_INTERVAL)\n\t\tend\n\tend)\nend\n\ninitialize()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.DonationLeaderboard.Server"
+        }
+      }
+    },
+    {
+      "id": "s5-folder-server",
+      "type": "scripted",
+      "body": "Add a Folder `Server` under `Workspace.DonationLeaderboard` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.DonationLeaderboard",
+        "props": {
+          "Name": "Server"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.DonationLeaderboard.Server"
+      }
+    },
+    {
+      "id": "s6-formatlargenumb",
+      "type": "codeEdit",
+      "body": "Add `formatLargeNumb` (ModuleScript) under `Workspace.DonationLeaderboard.Server`.",
+      "target": {
+        "path": "Workspace.DonationLeaderboard.Server.formatLargeNumb",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\ntype LargeNumberFormat = { denom: number, letter: string }\n\nlocal FORMATS: { LargeNumberFormat } = {\n\t{\n\t\tdenom = 1_000_000_000_000,\n\t\tletter = \"T\",\n\t},\n\t{\n\t\tdenom = 1_000_000_000,\n\t\tletter = \"B\",\n\t},\n\t{\n\t\tdenom = 1_000_000,\n\t\tletter = \"M\",\n\t},\n\t{\n\t\tdenom = 1_000,\n\t\tletter = \"K\",\n\t},\n}\n\nlocal function formatLargeNumber(num: number): string\n\tfor _, format in FORMATS do\n\t\tif num >= format.denom then\n\t\t\treturn string.format(\"%.2f%s\", num / format.denom, format.letter)\n\t\tend\n\tend\n\n\treturn tostring(num)\nend\n\nreturn formatLargeNumber\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.DonationLeaderboard.Server.formatLargeNumb"
+        }
+      }
+    },
+    {
+      "id": "s7-donationproducts",
+      "type": "codeEdit",
+      "body": "Add `DonationProducts` (ModuleScript) under `Workspace.DonationLeaderboard`.",
+      "target": {
+        "path": "Workspace.DonationLeaderboard.DonationProducts",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal donationProducts: { number } = {\n\t-- Place DevProduct IDs here\n}\n\nreturn donationProducts\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.DonationLeaderboard.DonationProducts"
+        }
+      }
+    },
+    {
+      "id": "s8-folder-instances",
+      "type": "scripted",
+      "body": "Add a Folder `Instances` under `Workspace.DonationLeaderboard` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.DonationLeaderboard",
+        "props": {
+          "Name": "Instances"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.DonationLeaderboard.Instances"
+      }
+    },
+    {
+      "id": "s9-clone-displayframe",
+      "type": "scripted",
+      "body": "Clone the bundled `DisplayFrame` instance tree into `Workspace.DonationLeaderboard.Instances`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.donation-leaderboard.DisplayFrame",
+        "parent": "Workspace.DonationLeaderboard.Instances",
+        "name": "DisplayFrame"
+      },
+      "focus": {
+        "selection": "Workspace.DonationLeaderboard.Instances.DisplayFrame"
+      }
+    },
+    {
+      "id": "s10-clone-productbutton",
+      "type": "scripted",
+      "body": "Clone the bundled `ProductButton` instance tree into `Workspace.DonationLeaderboard.Instances`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.donation-leaderboard.ProductButton",
+        "parent": "Workspace.DonationLeaderboard.Instances",
+        "name": "ProductButton"
+      },
+      "focus": {
+        "selection": "Workspace.DonationLeaderboard.Instances.ProductButton"
+      }
+    },
+    {
+      "id": "s11-clone-leaderboard",
+      "type": "scripted",
+      "body": "Clone the bundled `Leaderboard` instance tree into `Workspace.DonationLeaderboard`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.donation-leaderboard.Leaderboard",
+        "parent": "Workspace.DonationLeaderboard",
+        "name": "Leaderboard"
+      },
+      "focus": {
+        "selection": "Workspace.DonationLeaderboard.Leaderboard"
+      }
+    },
+    {
+      "id": "s12-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.DonationLeaderboard` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.donation-leaderboard.DisplayFrame",
+      "name": "DisplayFrame",
+      "description": "Bundled instance tree from solutions-samples/donation-leaderboard."
+    },
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.donation-leaderboard.ProductButton",
+      "name": "ProductButton",
+      "description": "Bundled instance tree from solutions-samples/donation-leaderboard."
+    },
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.donation-leaderboard.Leaderboard",
+      "name": "Leaderboard",
+      "description": "Bundled instance tree from solutions-samples/donation-leaderboard."
+    }
+  ]
+}

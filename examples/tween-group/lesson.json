@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "tween-group",
+  "title": "Tween Group",
+  "goal": "Links a group of tweens together, allowing them to be played, paused and cancelled as one.",
+  "tags": [
+    "Visual",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Links a group of tweens together, allowing them to be played, paused and cancelled as one.\n\nNote: TweenGroup does not support PlaybackState or Completed events.\n\nThis sample was ported from `solutions-samples/tween-group`. Every step is deterministic \u2014 watch the components assemble under `Workspace.TweenGroup`."
+    },
+    {
+      "id": "s2-folder-tweengroup",
+      "type": "scripted",
+      "body": "Add a Folder `TweenGroup` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "TweenGroup"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.TweenGroup"
+      }
+    },
+    {
+      "id": "s3-tweengroup",
+      "type": "codeEdit",
+      "body": "Add `TweenGroup` (ModuleScript) under `Workspace.TweenGroup`.",
+      "target": {
+        "path": "Workspace.TweenGroup.TweenGroup",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tLinks a group of tweens together, allowing them to be played, paused and canceled as one.\n\n\tNote TweenGroup does not support PlaybackState or Completed events.\n--]]\n\nlocal TweenGroup = {}\nTweenGroup.__index = TweenGroup\n\nfunction TweenGroup.new(...: Tween)\n\tlocal self = {\n\t\t_tweens = { ... },\n\t}\n\tsetmetatable(self, TweenGroup)\n\n\treturn self\nend\n\nfunction TweenGroup:play()\n\tfor _, tween in ipairs(self._tweens) do\n\t\ttween:Play()\n\tend\nend\n\nfunction TweenGroup:pause()\n\tfor _, tween in ipairs(self._tweens) do\n\t\ttween:Pause()\n\tend\nend\n\nfunction TweenGroup:cancel()\n\tfor _, tween in ipairs(self._tweens) do\n\t\ttween:Cancel()\n\tend\nend\n\nreturn TweenGroup\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.TweenGroup.TweenGroup"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.TweenGroup` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.TweenGroup",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.TweenGroup.Demo"
+      }
+    },
+    {
+      "id": "s5-clone-part",
+      "type": "scripted",
+      "body": "Clone the bundled `Part` instance tree into `Workspace.TweenGroup.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.tween-group.Part",
+        "parent": "Workspace.TweenGroup.Demo",
+        "name": "Part"
+      },
+      "focus": {
+        "selection": "Workspace.TweenGroup.Demo.Part"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.TweenGroup.Demo`.",
+      "target": {
+        "path": "Workspace.TweenGroup.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tLinks a group of tweens together, allowing them to be played, paused and cancelled as one.\n\tNote: TweenGroup does not support PlaybackState or Completed events.\n--]]\n\nlocal TweenService = game:GetService(\"TweenService\")\nlocal TweenGroup = require(script.Parent.Parent.TweenGroup)\n\nlocal part = script.Parent.Part\n\n-- Create a TweenGroup containing multiple tweens\nlocal tweenGroup = TweenGroup.new(\n\tTweenService:Create(part, TweenInfo.new(5, Enum.EasingStyle.Linear), {\n\t\tColor = Color3.new(1, 0, 0),\n\t}),\n\tTweenService:Create(part, TweenInfo.new(12, Enum.EasingStyle.Quad), {\n\t\tSize = Vector3.new(10, 10, 10),\n\t}),\n\tTweenService:Create(part, TweenInfo.new(14, Enum.EasingStyle.Sine), {\n\t\tTransparency = 1,\n\t}),\n\tTweenService:Create(part, TweenInfo.new(9, Enum.EasingStyle.Bounce), {\n\t\tPosition = part.Position + (Vector3.yAxis * 15),\n\t})\n)\n\n-- Play all the tweens at once\ntweenGroup:play()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.TweenGroup.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.TweenGroup` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.tween-group.Part",
+      "name": "Part",
+      "description": "Bundled instance tree from solutions-samples/tween-group."
+    }
+  ]
+}

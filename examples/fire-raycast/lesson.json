@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "fire-raycast",
+  "title": "Raycasting",
+  "goal": "The fireRaycast function fires a ray from an Attachment position, visualizing the path of the ray and the surface normal that was hit. A model named \"Device\" rotates around in a circle, pointing the ray at various objects.",
+  "tags": [
+    "3D Space",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "The fireRaycast function fires a ray from an Attachment position, visualizing the path of the ray and the surface normal that was hit. A model named \"Device\" rotates around in a circle, pointing the ray at various objects.\n\nThis sample was ported from `solutions-samples/fire-raycast`. Every step is deterministic \u2014 watch the components assemble under `Workspace.FireRaycast`."
+    },
+    {
+      "id": "s2-folder-fireraycast",
+      "type": "scripted",
+      "body": "Add a Folder `FireRaycast` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "FireRaycast"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.FireRaycast"
+      }
+    },
+    {
+      "id": "s3-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.FireRaycast` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.FireRaycast",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.FireRaycast.Demo"
+      }
+    },
+    {
+      "id": "s4-clone-instances",
+      "type": "scripted",
+      "body": "Clone the bundled `Instances` instance tree into `Workspace.FireRaycast.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.fire-raycast.Instances",
+        "parent": "Workspace.FireRaycast.Demo",
+        "name": "Instances"
+      },
+      "focus": {
+        "selection": "Workspace.FireRaycast.Demo.Instances"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.FireRaycast.Demo`.",
+      "target": {
+        "path": "Workspace.FireRaycast.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tThe fireRaycast function fires a ray from an Attachment position, visualizing the path of the ray and the surface normal that was hit.\n\tA model named \"Device\" rotates around in a circle, pointing the ray at various objects.\n--]]\n\nlocal Workspace = game:GetService(\"Workspace\")\nlocal RunService = game:GetService(\"RunService\")\n\n-- Define the maximum distance to cast the ray\nlocal RAYCAST_DISTANCE = 100\n\nlocal instances = script.Parent:WaitForChild(\"Instances\")\nlocal device = instances.Device\nlocal laserOrigin = device.Body.LaserOrigin\nlocal arrow = device.Arrow\n\n-- Define raycast parameters to exclude the raycasting device and arrow visualization\nlocal raycastParams = RaycastParams.new()\nraycastParams.FilterDescendantsInstances = { device, arrow }\nraycastParams.FilterType = Enum.RaycastFilterType.Exclude\n\nlocal function fireRaycast()\n\t-- Get the position and direction that the diode is pointing\n\tlocal rayOrigin = laserOrigin.WorldCFrame.Position\n\t-- LookVector has a magnitude of 1, so it is multiplied by RAYCAST_DISTANCE to get the full length of the ray\n\tlocal rayDirection = laserOrigin.WorldCFrame.LookVector * RAYCAST_DISTANCE\n\n\t-- Raycast from the rayOrigin in the direction of rayDirection\n\tlocal raycastResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)\n\n\t-- If the raycast hit something, update the visualization\n\tif raycastResult then\n\t\t-- The raycastResult object contains the position that was hit, the surface normal, and the instance that was hit\n\t\tarrow.CFrame = CFrame.new(raycastResult.Position, raycastResult.Position + raycastResult.Normal)\n\t\tarrow.BillboardGui.TextLabel.Text = raycastResult.Instance.Name\n\tend\nend\n\n-- Run the raycast function every frame\nRunService.Heartbeat:Connect(fireRaycast)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.FireRaycast.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.FireRaycast` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.fire-raycast.Instances",
+      "name": "Instances",
+      "description": "Bundled instance tree from solutions-samples/fire-raycast."
+    }
+  ]
+}

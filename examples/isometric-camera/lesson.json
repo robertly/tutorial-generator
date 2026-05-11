@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "isometric-camera",
+  "title": "Isometric Camera",
+  "goal": "Demonstrates how to update a player's camera to create an Isometric Camera style. The camera updates every render step to ensure the camera maintains a constant distance from the player, as well as follows the player as they move.",
+  "tags": [
+    "Camera",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates how to update a player's camera to create an Isometric Camera style. The camera updates every render step to ensure the camera maintains a constant distance from the player, as well as follows the player as they move.\n\nThis sample was ported from `solutions-samples/isometric-camera`. Every step is deterministic \u2014 watch the components assemble under `Workspace.IsometricCamera`."
+    },
+    {
+      "id": "s2-folder-isometriccamera",
+      "type": "scripted",
+      "body": "Add a Folder `IsometricCamera` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "IsometricCamera"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.IsometricCamera"
+      }
+    },
+    {
+      "id": "s3-isometriccamerascript",
+      "type": "codeEdit",
+      "body": "Add `IsometricCameraScript` (Script) under `Workspace.IsometricCamera`.",
+      "target": {
+        "path": "Workspace.IsometricCamera.IsometricCameraScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tDemonstrates how to update a player's camera to create an Isometric Camera style.\n\tThe camera updates every render step to ensure the camera maintains a constant distance from the player, as well as follows the player as they move.\n--]]\n\nlocal Players = game:GetService(\"Players\")\nlocal RunService = game:GetService(\"RunService\")\n\nlocal player = Players.LocalPlayer\nlocal camera = workspace.CurrentCamera\n\n-- Controls how far the camera is relative to the player's position\nlocal CAMERA_DEPTH = 64\n-- Controls the height above the player the camera will focus towards\nlocal HEIGHT_OFFSET = 2\n-- Field of view controls how much of the world the player can see\nlocal FIELD_OF_VIEW = 20\n\n--[[\nRuns every render step to ensure camera:\n\t- maintains a constant distance from the player\n\t- follows the player as they move\n--]]\nlocal function updateCamera()\n\tlocal character = player.Character\n\tif character then\n\t\tlocal humanoidRootPart = character:FindFirstChild(\"HumanoidRootPart\")\n\t\tif humanoidRootPart then\n\t\t\tlocal playerPosition = humanoidRootPart.Position + Vector3.yAxis * HEIGHT_OFFSET\n\t\t\tlocal cameraPosition = playerPosition + Vector3.one * CAMERA_DEPTH\n\t\t\tcamera.CFrame = CFrame.lookAt(cameraPosition, playerPosition)\n\t\tend\n\tend\nend\n\n-- Set the camera's field of view\ncamera.FieldOfView = FIELD_OF_VIEW\n-- Change the camera type to Scriptable to not conflict with the default camera behavior\ncamera.CameraType = Enum.CameraType.Scriptable\n\n-- Update the camera every render step\nRunService.RenderStepped:Connect(updateCamera)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.IsometricCamera.IsometricCameraScript"
+        }
+      }
+    },
+    {
+      "id": "s4-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.IsometricCamera` in the Explorer to see the assembled result."
+    }
+  ]
+}

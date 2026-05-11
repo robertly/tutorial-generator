@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "player-lifecycle-events",
+  "title": "Player Lifecycle Events",
+  "goal": "Demonstrates connecting to common player, character and humanoid events. Events covered: PlayerAdded, PlayerRemoving, CharacterAdded, CharacterRemoving, CharacterAppearanceLoaded and Died (humanoid).",
+  "tags": [
+    "Player & Character",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates connecting to common player, character and humanoid events. Events covered: PlayerAdded, PlayerRemoving, CharacterAdded, CharacterRemoving, CharacterAppearanceLoaded and Died (humanoid).\n\nThis sample was ported from `solutions-samples/player-lifecycle-events`. Every step is deterministic \u2014 watch the components assemble under `Workspace.PlayerLifecycleEvents`."
+    },
+    {
+      "id": "s2-folder-playerlifecycleevents",
+      "type": "scripted",
+      "body": "Add a Folder `PlayerLifecycleEvents` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "PlayerLifecycleEvents"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PlayerLifecycleEvents"
+      }
+    },
+    {
+      "id": "s3-playerlifecyclescript",
+      "type": "codeEdit",
+      "body": "Add `PlayerLifecycleScript` (Script) under `Workspace.PlayerLifecycleEvents`.",
+      "target": {
+        "path": "Workspace.PlayerLifecycleEvents.PlayerLifecycleScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tDemonstrates connecting to common player, character and humanoid events.\n\tEvents covered: PlayerAdded, PlayerRemoving, CharacterAdded, CharacterRemoving, CharacterAppearanceLoaded and Died (humanoid).\n--]]\n\nlocal Players = game:GetService(\"Players\")\n\nlocal function onPlayerAdded(player: Player)\n\tprint(player.Name, \"has joined the Experience\")\n\n\tlocal function onCharacterAdded(character: Model)\n\t\tprint(player.Name, \"character was added to Workspace\")\n\n\t\tlocal humanoid = character:WaitForChild(\"Humanoid\")\n\n\t\tlocal function onDied()\n\t\t\tprint(player.Name, \"Humanoid has died\")\n\t\tend\n\t\thumanoid.Died:Connect(onDied)\n\tend\n\n\tlocal function onCharacterRemoving(_)\n\t\tprint(player.Name, \"character is being removed from Workspace\")\n\tend\n\n\tlocal function onCharacterAppearanceLoaded(_)\n\t\tprint(player.Name, \"character appearance has loaded\")\n\tend\n\n\tplayer.CharacterAdded:Connect(onCharacterAdded)\n\tplayer.CharacterRemoving:Connect(onCharacterRemoving)\n\tplayer.CharacterAppearanceLoaded:Connect(onCharacterAppearanceLoaded)\nend\n\nlocal function onPlayerRemoving(player: Player)\n\tprint(player.Name, \"is leaving the Experience\")\nend\n\nfor _, player in pairs(Players:GetPlayers()) do\n\tonPlayerAdded(player)\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\nPlayers.PlayerRemoving:Connect(onPlayerRemoving)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PlayerLifecycleEvents.PlayerLifecycleScript"
+        }
+      }
+    },
+    {
+      "id": "s4-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.PlayerLifecycleEvents` in the Explorer to see the assembled result."
+    }
+  ]
+}

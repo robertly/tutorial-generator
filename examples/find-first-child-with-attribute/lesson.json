@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "find-first-child-with-attribute",
+  "title": "Find First Child With Attribute",
+  "goal": "Searches children of an instance, returning the first child containing an attribute matching the given name and value.",
+  "tags": [
+    "Utility",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Searches children of an instance, returning the first child containing an attribute matching the given name and value.\n\nThe DemoScript removes flavors from an ice cream cone in the correct order using findFirstChildWithAttribute\n\nThis sample was ported from `solutions-samples/find-first-child-with-attribute`. Every step is deterministic \u2014 watch the components assemble under `Workspace.FindFirstChildWithAttribute`."
+    },
+    {
+      "id": "s2-folder-findfirstchildwithattribu",
+      "type": "scripted",
+      "body": "Add a Folder `FindFirstChildWithAttribute` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "FindFirstChildWithAttribute"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.FindFirstChildWithAttribute"
+      }
+    },
+    {
+      "id": "s3-findfirstchildwithattribute",
+      "type": "codeEdit",
+      "body": "Add `findFirstChildWithAttribute` (ModuleScript) under `Workspace.FindFirstChildWithAttribute`.",
+      "target": {
+        "path": "Workspace.FindFirstChildWithAttribute.findFirstChildWithAttribute",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tSearches children of an instance, returning the first child containing an attribute\n\tmatching the given name and value.\n--]]\n\nlocal function findFirstChildWithAttribute(parent: Instance, attributeName: string, attributeValue: any): Instance?\n\tlocal children = parent:GetChildren()\n\n\tfor _, child in pairs(children) do\n\t\tif child:GetAttribute(attributeName) == attributeValue then\n\t\t\treturn child\n\t\tend\n\tend\n\n\treturn nil\nend\n\nreturn findFirstChildWithAttribute\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.FindFirstChildWithAttribute.findFirstChildWithAttribute"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.FindFirstChildWithAttribute` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.FindFirstChildWithAttribute",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.FindFirstChildWithAttribute.Demo"
+      }
+    },
+    {
+      "id": "s5-clone-icecreamcone",
+      "type": "scripted",
+      "body": "Clone the bundled `IceCreamCone` instance tree into `Workspace.FindFirstChildWithAttribute.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.find-first-child-with-attribute.IceCreamCone",
+        "parent": "Workspace.FindFirstChildWithAttribute.Demo",
+        "name": "IceCreamCone"
+      },
+      "focus": {
+        "selection": "Workspace.FindFirstChildWithAttribute.Demo.IceCreamCone"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.FindFirstChildWithAttribute.Demo`.",
+      "target": {
+        "path": "Workspace.FindFirstChildWithAttribute.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tSearches children of an instance, returning the first child containing an attribute matching the given name and value.\n\tThe DemoScript removes flavors from an ice cream cone in the correct order using findFirstChildWithAttribute\n--]]\n\nlocal findFirstChildWithAttribute = require(script.Parent.Parent.findFirstChildWithAttribute)\n\nlocal iceCreamCone = script.Parent.IceCreamCone\nlocal ATTRIBUTE_NAME = \"Order\"\n\n-- Wait some time before removing flavors\ntask.wait(5)\n\nfor attributeValue = 1, 3 do\n\t-- Get the flavor based on the \"Order\" attribute and value\n\tlocal flavor = findFirstChildWithAttribute(iceCreamCone, ATTRIBUTE_NAME, attributeValue)\n\n\t-- Transition the flavor's transparency to 1 over time\n\ttask.wait(0.5)\n\tflavor.Transparency = 0.5\n\ttask.wait(0.5)\n\tflavor.Transparency = 1\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.FindFirstChildWithAttribute.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.FindFirstChildWithAttribute` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.find-first-child-with-attribute.IceCreamCone",
+      "name": "IceCreamCone",
+      "description": "Bundled instance tree from solutions-samples/find-first-child-with-attribute."
+    }
+  ]
+}

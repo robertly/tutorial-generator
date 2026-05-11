@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "thread-queue",
+  "title": "ThreadQueue",
+  "goal": "ThreadQueue can be used to queue functions so that they don't all run at once. In this example, 10 functions are added to a queue at the same time, and then executed in order with a 1s delay between them.",
+  "tags": [
+    "Utility",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "ThreadQueue can be used to queue functions so that they don't all run at once. In this example, 10 functions are added to a queue at the same time, and then executed in order with a 1s delay between them.\n\nThis sample was ported from `solutions-samples/thread-queue`. Every step is deterministic \u2014 watch the components assemble under `Workspace.ThreadQueue`."
+    },
+    {
+      "id": "s2-folder-threadqueue",
+      "type": "scripted",
+      "body": "Add a Folder `ThreadQueue` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "ThreadQueue"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ThreadQueue"
+      }
+    },
+    {
+      "id": "s3-threadqueue",
+      "type": "codeEdit",
+      "body": "Add `ThreadQueue` (ModuleScript) under `Workspace.ThreadQueue`.",
+      "target": {
+        "path": "Workspace.ThreadQueue.ThreadQueue",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tThreadQueue is a task scheduler and rate limiter that allows callbacks to be queued to be executed, yielding the requesting thread\n\tuntil the callback has returned.\n\n\tProvides similar functionality to the NodeJS module Bottleneck (https://www.npmjs.com/package/bottleneck) however, it exposes\n\tits scheduling functionality through coroutines rather than promises.\n--]]\n\nlocal ThreadQueue = {}\nThreadQueue.__index = ThreadQueue\n\ntype Callback = (...any) -> ...any\n\ntype QueueEntry = {\n\tthread: thread,\n\tcallback: Callback,\n}\n\nfunction ThreadQueue.new(timeBetween: number?, maxQueueLength: number?, enableConcurrency: boolean?)\n\tlocal self = {\n\t\t_queue = {},\n\t\t_queueRunning = false,\n\t\t_timeBetween = (timeBetween or 0),\n\t\t_maxQueueLength = (maxQueueLength or math.huge),\n\t\t_enableConcurrency = enableConcurrency and true or false,\n\t}\n\tsetmetatable(self, ThreadQueue)\n\n\treturn self\nend\n\nfunction ThreadQueue:submitAsync(callback: Callback)\n\tif #self._queue > self._maxQueueLength then\n\t\treturn false, string.format(\"Queue is at capacity (%i)\", self._maxQueueLength)\n\tend\n\n\tlocal queueEntry: QueueEntry = {\n\t\tthread = coroutine.running(),\n\t\tcallback = callback,\n\t}\n\n\ttable.insert(self._queue, queueEntry)\n\n\tself:_startQueue()\n\n\treturn coroutine.yield()\nend\n\nfunction ThreadQueue:getLength(): number\n\treturn #self._queue\nend\n\nfunction ThreadQueue:skipToLastEnqueued()\n\t-- This method will not skip currently executing requests, but will remove\n\t-- all pending requests from the queue aside from the most recently enqueued\n\tif #self._queue > 1 then\n\t\tlocal lastEnqueuedEntry = self._queue[#self._queue]\n\t\tself._queue = { lastEnqueuedEntry }\n\tend\nend\n\nfunction ThreadQueue:_startQueue()\n\t-- Wait for the next resumption cycle, so the requesting thread has time to yield first\n\ttask.defer(function()\n\t\tif self._queueRunning then\n\t\t\treturn\n\t\tend\n\t\tself._queueRunning = true\n\n\t\twhile #self._queue > 0 do\n\t\t\tself:_popQueueAsync()\n\n\t\t\tif self._timeBetween > 0 then\n\t\t\t\ttask.wait(self._timeBetween)\n\t\t\tend\n\t\tend\n\n\t\tself._queueRunning = false\n\tend)\nend\n\nfunction ThreadQueue:_popQueueAsync()\n\tlocal entry = table.remove(self._queue, 1) :: QueueEntry\n\n\tlocal function execute()\n\t\t-- This callback can yield. Note the callback is called synchronously on this thread.\n\t\t-- The task.spawn is used to resume the calling thread with the pcall'd results of the callback.\n\t\ttask.spawn(entry.thread, pcall(entry.callback))\n\tend\n\n\t-- If concurrency is enabled, we do not want to yield the queue while we wait for the callback to return\n\tif self._enableConcurrency then\n\t\t-- Use spawn to call execute so entry.callback doesn't block us from proceeding\n\t\ttask.spawn(execute)\n\telse\n\t\texecute()\n\tend\nend\n\nreturn ThreadQueue\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ThreadQueue.ThreadQueue"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.ThreadQueue` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.ThreadQueue",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ThreadQueue.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.ThreadQueue.Demo`.",
+      "target": {
+        "path": "Workspace.ThreadQueue.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tThreadQueue can be used to queue functions so that they don't all run at once.\n\tIn this example, 10 functions are added to a queue at the same time, and then executed in order with a 1s delay between them\n--]]\n\nlocal ThreadQueue = require(script.Parent.Parent.ThreadQueue)\n\nlocal timeBetween = 1\nlocal maxQueueLength = nil -- No max length is set, the queue can be infinitely long\nlocal enableConcurrency = false\n\nlocal myQueue = ThreadQueue.new(timeBetween, maxQueueLength, enableConcurrency)\n\n-- Submit all functions to the queue at once\nfor i = 1, 10 do\n\ttask.spawn(function()\n\t\tprint(\"Submitting function #\", i)\n\t\tmyQueue:submitAsync(function()\n\t\t\tprint(\"This is function #\", i)\n\t\tend)\n\tend)\nend\n\n--> This is function # 1\n-- (1s delay)\n--> This is function # 2\n-- (1s delay)\n-- ...\n--> This is function # 10\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ThreadQueue.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.ThreadQueue` in the Explorer to see the assembled result."
+    }
+  ]
+}

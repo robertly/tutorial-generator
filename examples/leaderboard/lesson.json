@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "leaderboard",
+  "title": "Leaderboard Module",
+  "goal": "The Leaderboard Module updates a player's leaderboard with a name (statName) and value. The module creates the initial leaderboard as well as the stat for the player if it does not already exist.",
+  "tags": [
+    "Leaderboard",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "The Leaderboard Module updates a player's leaderboard with a name (statName) and value. The module creates the initial leaderboard as well as the stat for the player if it does not already exist.\nThe demo used the Leaderboard Module to update all player's leaderboards with a \"Points\" stat that increases over time.\n\nThis sample was ported from `solutions-samples/leaderboard`. Every step is deterministic \u2014 watch the components assemble under `Workspace.Leaderboard`."
+    },
+    {
+      "id": "s2-folder-leaderboard",
+      "type": "scripted",
+      "body": "Add a Folder `Leaderboard` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "Leaderboard"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Leaderboard"
+      }
+    },
+    {
+      "id": "s3-leaderboard",
+      "type": "codeEdit",
+      "body": "Add `Leaderboard` (ModuleScript) under `Workspace.Leaderboard`.",
+      "target": {
+        "path": "Workspace.Leaderboard.Leaderboard",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "local Leaderboard = {}\n\nlocal function setupLeaderboard(player)\n\tlocal leaderstats = Instance.new(\"Folder\")\n\t-- 'leaderstats' is a reserved name Roblox recognizes for creating a leaderboard\n\tleaderstats.Name = \"leaderstats\"\n\tleaderstats.Parent = player\n\treturn leaderstats\nend\n\nlocal function setupStat(leaderstats, statName)\n\tlocal stat = Instance.new(\"IntValue\")\n\tstat.Name = statName\n\tstat.Value = 0\n\tstat.Parent = leaderstats\n\treturn stat\nend\n\nfunction Leaderboard.setStat(player, statName, value)\n\tlocal leaderstats = player:FindFirstChild(\"leaderstats\")\n\tif not leaderstats then\n\t\tleaderstats = setupLeaderboard(player)\n\tend\n\n\tlocal stat = leaderstats:FindFirstChild(statName)\n\tif not stat then\n\t\tstat = setupStat(leaderstats, statName)\n\tend\n\n\tstat.Value = value\nend\n\nreturn Leaderboard\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Leaderboard.Leaderboard"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.Leaderboard` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.Leaderboard",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.Leaderboard.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.Leaderboard.Demo`.",
+      "target": {
+        "path": "Workspace.Leaderboard.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "local Players = game:GetService(\"Players\")\n\nlocal Leaderboard = require(script.Parent.Parent.Leaderboard)\n\nlocal testValue = 0\nwhile true do\n\tfor _, player in pairs(Players:GetPlayers()) do\n\t\t-- Update all player's Leadboards with a \"Points\" stat of value testValue\n\t\tLeaderboard.setStat(player, \"Points\", testValue)\n\tend\n\ttask.wait(1)\n\ttestValue = testValue + 1\nend\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.Leaderboard.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.Leaderboard` in the Explorer to see the assembled result."
+    }
+  ]
+}

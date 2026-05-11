@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "id": "purchase-handling",
+  "title": "Purchase Handling",
+  "goal": "This sample demonstrates an approach to safely and robustly awarding developer product purchases to players",
+  "tags": [
+    "Cloud Services",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "This sample demonstrates an approach to safely and robustly awarding developer product purchases to players\n\nThis sample was ported from `solutions-samples/purchase-handling`. Every step is deterministic \u2014 watch the components assemble under `Workspace.PurchaseHandling`."
+    },
+    {
+      "id": "s2-folder-purchasehandling",
+      "type": "scripted",
+      "body": "Add a Folder `PurchaseHandling` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "PurchaseHandling"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PurchaseHandling"
+      }
+    },
+    {
+      "id": "s3-folder-purchasehandling",
+      "type": "scripted",
+      "body": "Add a Folder `PurchaseHandling` under `Workspace.PurchaseHandling` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.PurchaseHandling",
+        "props": {
+          "Name": "PurchaseHandling"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PurchaseHandling.PurchaseHandling"
+      }
+    },
+    {
+      "id": "s4-receiptprocessor",
+      "type": "codeEdit",
+      "body": "Add `ReceiptProcessor` (ModuleScript) under `Workspace.PurchaseHandling.PurchaseHandling`.",
+      "target": {
+        "path": "Workspace.PurchaseHandling.PurchaseHandling.ReceiptProcessor",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tThe ReceiptProcessor handles processing developer product purchases. Following these principles:\n\n\t1. All purchases have a DataStore representation\n\t2. A purchase should not be finalized until it has been saved in a DataStore\n\n\tThis file seeks to address the common pitfalls in ProcessReceipt implementations, including:\n\n\t1. Returning PurchaseGranted before the purchase has been recorded in the player's DataStore\n\t2. Checking and recording the PurchaseId in separate non-atomic GetAsync / SetAsync calls\n\t3. Implementing complex transaction systems to atomically update the session and DataStore data\n\t4. Recording a purchase as failed if the initial attempt to save it fails, even if a later attempt succeeds\n--]]\n\nlocal Players = game:GetService(\"Players\")\nlocal MarketplaceService = game:GetService(\"MarketplaceService\")\n\nlocal PlayerDataServer = require(script.Parent.PlayerData.Server)\nlocal waitForFirstAsync = require(script.waitForFirstAsync)\n\nlocal MAX_RECEIPT_HISTORY = 100 -- The maximum number of receipts to store in the player data\nlocal RECEIPT_HISTORY_VALUE_NAME = \"__receiptHistory\" -- The name of the value in the player data that stores receipt history\n\ntype ProductCallback = (Player, number) -> nil\n\ntype ReceiptInfo = {\n\tPurchaseId: string, -- A unique identifier for the specific purchase\n\tPlayerId: number, -- The ID of the player who made the purchase\n\tProductId: number, -- The ID of the purchased product\n\tCurrencySpent: number, -- The amount of currency spent in the purchase\n\tCurrencyType: Enum.CurrencyType, -- The type of currency spent in the purchase; always Enum.CurrencyType.Robux\n\tPlaceIdWherePurchased: number, -- The ID of the place where the product was purchased (not necessarily the same as the current place's ID)\n}\n\nlocal ReceiptProcessor = {}\nReceiptProcessor._productCallbacks = {} :: { [number]: ProductCallback }\n-- We expose this constant as a property of ReceiptProcessor so the PlayerData system can set it as a\n-- private value that is not replicated to the client\nReceiptProcessor.receiptHistoryValueName = RECEIPT_HISTORY_VALUE_NAME\n\nfunction ReceiptProcessor.start()\n\tMarketplaceService.ProcessReceipt = function(receiptInfo: ReceiptInfo)\n\t\tlocal playerId = receiptInfo.PlayerId\n\t\tlocal productId = receiptInfo.ProductId\n\t\tlocal purchaseId = receiptInfo.PurchaseId\n\n\t\tlocal result = ReceiptProcessor._processReceiptAsync(playerId, productId, purchaseId)\n\n\t\treturn result\n\tend\nend\n\n-- The product callback is the function that manipulates the session data to process the purchase\n-- Example:\n-- ReceiptProcessor.registerProductCallback(12345, function(player)\n-- \tPlayerDataServer.updateValue(player, \"coins\", function(oldValue)\n-- \t\treturn oldValue + 1\n-- \tend)\n-- end)\nfunction ReceiptProcessor.registerProductCallback(developerProductId: number, productCallback: ProductCallback)\n\tassert(\n\t\tnot ReceiptProcessor._productCallbacks[developerProductId],\n\t\tstring.format(\"Developer product %d already has a callback assigned\", developerProductId)\n\t)\n\tReceiptProcessor._productCallbacks[developerProductId] = productCallback\nend\n\nfunction ReceiptProcessor._processReceiptAsync(\n\tplayerId: number,\n\tproductId: number,\n\tpurchaseId: string\n): Enum.ProductPurchaseDecision\n\t-- We do not want to save player data if the player is not currently in the server\n\tlocal player = Players:GetPlayerByUserId(playerId)\n\tif not player then\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- Because ProcessReceipt can be invoked when the player joins the server, we want to make sure that we've\n\t-- given the player's data time to load before continuing\n\tif PlayerDataServer.isLoading(player) then\n\t\t-- Here, we are waiting for the player's data to load OR for the player to leave the server (whichever happens first)\n\t\t-- We are including the player leaving the server here as if we instead yielded indefinitely when the player left the server\n\t\t-- prior to their data load, ProcessReceipt would be blocked from being invoked again on this server for this purchase\n\t\t-- even if the player rejoined.\n\t\twaitForFirstAsync(function()\n\t\t\tPlayerDataServer.waitForDataLoadAsync(player)\n\t\tend, function()\n\t\t\t-- TODO: Replace with player.Destroying:Wait() when that fires on player leave\n\t\t\tlocal _, playerParent\n\t\t\trepeat\n\t\t\t\t_, playerParent = player.AncestryChanged:Wait()\n\t\t\tuntil playerParent == nil\n\t\tend)\n\tend\n\n\t-- We do not want to save player data if it is currently loading, has errored or saving is otherwise disabled\n\t-- This check will also capture if the player has left without their data loading\n\tif not PlayerDataServer.canSave(player) then\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- Because the PlayerData system uses session locking, we can guarantee that the player data in memory\n\t-- on the server by PlayerDataServer is the most up to date version available. Therefore, we do not\n\t-- need to check to see if a more recent Data Store value exists where the receipt is handled.\n\tlocal receiptsProcessed = PlayerDataServer.getValue(player, ReceiptProcessor.receiptHistoryValueName) or {}\n\tif table.find(receiptsProcessed, purchaseId) then\n\t\t-- We are passing in the syncedValueOnly parameter, so we will only get a value that has been\n\t\t-- successfully loaded or saved to the DataStore.\n\t\tlocal receiptsProcessedSynced = PlayerDataServer.getValue(\n\t\t\tplayer,\n\t\t\tReceiptProcessor.receiptHistoryValueName,\n\t\t\ttrue\n\t\t) or {}\n\n\t\tif not table.find(receiptsProcessedSynced, purchaseId) then\n\t\t\t-- The current session data shows the purchase has been handled in this session, but this has not been reflected in\n\t\t\t-- the DataStore. This suggests that PlayerDataServer.saveDataAsync failed to save on a previous ProcessReceipt callback\n\t\t\t-- for this purchase. In this case, we will return NotProcessedYet. The next time this callback runs, if the data has\n\t\t\t-- since saved successfully it will return PurchaseGranted.\n\n\t\t\t-- Although we _could_ prompt another save here, we are opting not to as it will be more efficient to allow\n\t\t\t-- the player data to be saved in the subsequent PlayerData auto save / save triggered when the player leaves\n\n\t\t\twarn(\"PurchaseId found in session ReceiptHistory but not player ReceiptHistory.\")\n\t\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\t\tend\n\n\t\t-- As the purchaseId is already stored in our session data, and reflected in the Datastore, we know the purchase has\n\t\t-- been handled in this or a previous session. It's important we return PurchaseGranted here to capture cases where the\n\t\t-- purchase has finished processing, but ProcessReceipt failed to be recorded in the backend service.\n\t\treturn Enum.ProductPurchaseDecision.PurchaseGranted\n\tend\n\n\t-- If no product callback has been set, we are unable to process this purchase\n\tlocal productCallback = ReceiptProcessor._productCallbacks[productId]\n\tif not productCallback then\n\t\twarn(string.format(\"Product %d has no callback set\", productId))\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- The purchase is processed in the user's session data inside the product callback\n\tlocal productSuccess, productResult = pcall(productCallback, player, productId)\n\n\t-- If the product callback errored, we are unable to process the purchase\n\tif not productSuccess then\n\t\twarn(\"Error when calling product callback: \" .. tostring(productResult))\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- We need to store the receiptId in the player data history so we do not award this purchase twice\n\tPlayerDataServer.updateValue(player, ReceiptProcessor.receiptHistoryValueName, function(receipts: { string })\n\t\treceipts = receipts or {}\n\t\ttable.insert(receipts, purchaseId)\n\n\t\tif #receipts > MAX_RECEIPT_HISTORY then\n\t\t\ttable.remove(receipts, 1) -- trim the beginning of the list\n\t\tend\n\n\t\treturn receipts\n\tend)\n\n\tlocal saveSuccess, saveResult = PlayerDataServer.saveDataAsync(player)\n\n\t-- We only want to record this purchase as processed if it has been successfully saved to the DataStore\n\t-- If the save fails, we will record this purchase as NotProcessedYet\n\tif not saveSuccess then\n\t\twarn(\"Failed to save player data while processing receipt: \" .. tostring(saveResult))\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- We now know the purchase has been correctly handled in the current session, and the changes\n\t-- have been saved to the DataStore so we are free to mark this purchase as finalized\n\treturn Enum.ProductPurchaseDecision.PurchaseGranted\nend\n\nreturn ReceiptProcessor\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PurchaseHandling.PurchaseHandling.ReceiptProcessor"
+        }
+      }
+    },
+    {
+      "id": "s5-folder-receiptprocessor",
+      "type": "scripted",
+      "body": "Add a Folder `ReceiptProcessor` under `Workspace.PurchaseHandling.PurchaseHandling` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.PurchaseHandling.PurchaseHandling",
+        "props": {
+          "Name": "ReceiptProcessor"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PurchaseHandling.PurchaseHandling.ReceiptProcessor"
+      }
+    },
+    {
+      "id": "s6-waitforfirstasy",
+      "type": "codeEdit",
+      "body": "Add `waitForFirstAsy` (ModuleScript) under `Workspace.PurchaseHandling.PurchaseHandling.ReceiptProcessor`.",
+      "target": {
+        "path": "Workspace.PurchaseHandling.PurchaseHandling.ReceiptProcessor.waitForFirstAsy",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tTakes an arbitrary number of callback, and executes them in parallel, returning the results of the first to return.\n\tIf an error is thrown, that error is bubbled up to the main thread.\n\tWhen the first callback returns, the rest are cancelled using task.cancel.\n\n\tExposes similar functionality that Promise.race provides for promises, but for asynchronous lua callbacks\n--]]\n\ntype Callback = () -> ...any\n\nlocal function waitForFirstAsync(...: Callback)\n\tlocal thisThread = coroutine.running()\n\tlocal resumed = false\n\tlocal errorThrown: any\n\n\tlocal function resume(...: any)\n\t\tif resumed then\n\t\t\treturn\n\t\tend\n\t\tresumed = true\n\n\t\ttask.spawn(thisThread, ...)\n\tend\n\n\tfor _, callback in ipairs({ ... }) do\n\t\ttask.defer(function()\n\t\t\t-- We are capturing all values returned by pcall into a table so we can resume this thread\n\t\t\t-- with all values if multiple are returned\n\t\t\tlocal pcallReturnValues = { pcall(callback) }\n\t\t\tif not pcallReturnValues[1] then\n\t\t\t\terrorThrown = pcallReturnValues[2]\n\t\t\tend\n\n\t\t\tresume(table.unpack(pcallReturnValues, 2))\n\t\tend)\n\tend\n\n\tlocal returnValues = { coroutine.yield() }\n\n\tif errorThrown then\n\t\t-- Return the stack trace three callers up to where the function passed into waitForFirstAsync was\n\t\t-- declared\n\t\terror(errorThrown, 3)\n\tend\n\n\treturn table.unpack(returnValues)\nend\n\nreturn waitForFirstAsync\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PurchaseHandling.PurchaseHandling.ReceiptProcessor.waitForFirstAsy"
+        }
+      }
+    },
+    {
+      "id": "s7-playerdata",
+      "type": "codeEdit",
+      "body": "Add `PlayerData` (ModuleScript) under `Workspace.PurchaseHandling.PurchaseHandling`.",
+      "target": {
+        "path": "Workspace.PurchaseHandling.PurchaseHandling.PlayerData",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tThe ReceiptProcessor handles processing developer product purchases. Following these principles:\n\n\t1. All purchases have a DataStore representation\n\t2. A purchase should not be finalized until it has been saved in a DataStore\n\n\tThis file seeks to address the common pitfalls in ProcessReceipt implementations, including:\n\n\t1. Returning PurchaseGranted before the purchase has been recorded in the player's DataStore\n\t2. Checking and recording the PurchaseId in separate non-atomic GetAsync / SetAsync calls\n\t3. Implementing complex transaction systems to atomically update the session and DataStore data\n\t4. Recording a purchase as failed if the initial attempt to save it fails, even if a later attempt succeeds\n--]]\n\nlocal Players = game:GetService(\"Players\")\nlocal MarketplaceService = game:GetService(\"MarketplaceService\")\n\nlocal PlayerDataServer = require(script.Parent.PlayerData.Server)\nlocal waitForFirstAsync = require(script.waitForFirstAsync)\n\nlocal MAX_RECEIPT_HISTORY = 100 -- The maximum number of receipts to store in the player data\nlocal RECEIPT_HISTORY_VALUE_NAME = \"__receiptHistory\" -- The name of the value in the player data that stores receipt history\n\ntype ProductCallback = (Player, number) -> nil\n\ntype ReceiptInfo = {\n\tPurchaseId: string, -- A unique identifier for the specific purchase\n\tPlayerId: number, -- The ID of the player who made the purchase\n\tProductId: number, -- The ID of the purchased product\n\tCurrencySpent: number, -- The amount of currency spent in the purchase\n\tCurrencyType: Enum.CurrencyType, -- The type of currency spent in the purchase; always Enum.CurrencyType.Robux\n\tPlaceIdWherePurchased: number, -- The ID of the place where the product was purchased (not necessarily the same as the current place's ID)\n}\n\nlocal ReceiptProcessor = {}\nReceiptProcessor._productCallbacks = {} :: { [number]: ProductCallback }\n-- We expose this constant as a property of ReceiptProcessor so the PlayerData system can set it as a\n-- private value that is not replicated to the client\nReceiptProcessor.receiptHistoryValueName = RECEIPT_HISTORY_VALUE_NAME\n\nfunction ReceiptProcessor.start()\n\tMarketplaceService.ProcessReceipt = function(receiptInfo: ReceiptInfo)\n\t\tlocal playerId = receiptInfo.PlayerId\n\t\tlocal productId = receiptInfo.ProductId\n\t\tlocal purchaseId = receiptInfo.PurchaseId\n\n\t\tlocal result = ReceiptProcessor._processReceiptAsync(playerId, productId, purchaseId)\n\n\t\treturn result\n\tend\nend\n\n-- The product callback is the function that manipulates the session data to process the purchase\n-- Example:\n-- ReceiptProcessor.registerProductCallback(12345, function(player)\n-- \tPlayerDataServer.updateValue(player, \"coins\", function(oldValue)\n-- \t\treturn oldValue + 1\n-- \tend)\n-- end)\nfunction ReceiptProcessor.registerProductCallback(developerProductId: number, productCallback: ProductCallback)\n\tassert(\n\t\tnot ReceiptProcessor._productCallbacks[developerProductId],\n\t\tstring.format(\"Developer product %d already has a callback assigned\", developerProductId)\n\t)\n\tReceiptProcessor._productCallbacks[developerProductId] = productCallback\nend\n\nfunction ReceiptProcessor._processReceiptAsync(\n\tplayerId: number,\n\tproductId: number,\n\tpurchaseId: string\n): Enum.ProductPurchaseDecision\n\t-- We do not want to save player data if the player is not currently in the server\n\tlocal player = Players:GetPlayerByUserId(playerId)\n\tif not player then\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- Because ProcessReceipt can be invoked when the player joins the server, we want to make sure that we've\n\t-- given the player's data time to load before continuing\n\tif PlayerDataServer.isLoading(player) then\n\t\t-- Here, we are waiting for the player's data to load OR for the player to leave the server (whichever happens first)\n\t\t-- We are including the player leaving the server here as if we instead yielded indefinitely when the player left the server\n\t\t-- prior to their data load, ProcessReceipt would be blocked from being invoked again on this server for this purchase\n\t\t-- even if the player rejoined.\n\t\twaitForFirstAsync(function()\n\t\t\tPlayerDataServer.waitForDataLoadAsync(player)\n\t\tend, function()\n\t\t\t-- TODO: Replace with player.Destroying:Wait() when that fires on player leave\n\t\t\tlocal _, playerParent\n\t\t\trepeat\n\t\t\t\t_, playerParent = player.AncestryChanged:Wait()\n\t\t\tuntil playerParent == nil\n\t\tend)\n\tend\n\n\t-- We do not want to save player data if it is currently loading, has errored or saving is otherwise disabled\n\t-- This check will also capture if the player has left without their data loading\n\tif not PlayerDataServer.canSave(player) then\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- Because the PlayerData system uses session locking, we can guarantee that the player data in memory\n\t-- on the server by PlayerDataServer is the most up to date version available. Therefore, we do not\n\t-- need to check to see if a more recent Data Store value exists where the receipt is handled.\n\tlocal receiptsProcessed = PlayerDataServer.getValue(player, ReceiptProcessor.receiptHistoryValueName) or {}\n\tif table.find(receiptsProcessed, purchaseId) then\n\t\t-- We are passing in the syncedValueOnly parameter, so we will only get a value that has been\n\t\t-- successfully loaded or saved to the DataStore.\n\t\tlocal receiptsProcessedSynced = PlayerDataServer.getValue(\n\t\t\tplayer,\n\t\t\tReceiptProcessor.receiptHistoryValueName,\n\t\t\ttrue\n\t\t) or {}\n\n\t\tif not table.find(receiptsProcessedSynced, purchaseId) then\n\t\t\t-- The current session data shows the purchase has been handled in this session, but this has not been reflected in\n\t\t\t-- the DataStore. This suggests that PlayerDataServer.saveDataAsync failed to save on a previous ProcessReceipt callback\n\t\t\t-- for this purchase. In this case, we will return NotProcessedYet. The next time this callback runs, if the data has\n\t\t\t-- since saved successfully it will return PurchaseGranted.\n\n\t\t\t-- Although we _could_ prompt another save here, we are opting not to as it will be more efficient to allow\n\t\t\t-- the player data to be saved in the subsequent PlayerData auto save / save triggered when the player leaves\n\n\t\t\twarn(\"PurchaseId found in session ReceiptHistory but not player ReceiptHistory.\")\n\t\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\t\tend\n\n\t\t-- As the purchaseId is already stored in our session data, and reflected in the Datastore, we know the purchase has\n\t\t-- been handled in this or a previous session. It's important we return PurchaseGranted here to capture cases where the\n\t\t-- purchase has finished processing, but ProcessReceipt failed to be recorded in the backend service.\n\t\treturn Enum.ProductPurchaseDecision.PurchaseGranted\n\tend\n\n\t-- If no product callback has been set, we are unable to process this purchase\n\tlocal productCallback = ReceiptProcessor._productCallbacks[productId]\n\tif not productCallback then\n\t\twarn(string.format(\"Product %d has no callback set\", productId))\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- The purchase is processed in the user's session data inside the product callback\n\tlocal productSuccess, productResult = pcall(productCallback, player, productId)\n\n\t-- If the product callback errored, we are unable to process the purchase\n\tif not productSuccess then\n\t\twarn(\"Error when calling product callback: \" .. tostring(productResult))\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- We need to store the receiptId in the player data history so we do not award this purchase twice\n\tPlayerDataServer.updateValue(player, ReceiptProcessor.receiptHistoryValueName, function(receipts: { string })\n\t\treceipts = receipts or {}\n\t\ttable.insert(receipts, purchaseId)\n\n\t\tif #receipts > MAX_RECEIPT_HISTORY then\n\t\t\ttable.remove(receipts, 1) -- trim the beginning of the list\n\t\tend\n\n\t\treturn receipts\n\tend)\n\n\tlocal saveSuccess, saveResult = PlayerDataServer.saveDataAsync(player)\n\n\t-- We only want to record this purchase as processed if it has been successfully saved to the DataStore\n\t-- If the save fails, we will record this purchase as NotProcessedYet\n\tif not saveSuccess then\n\t\twarn(\"Failed to save player data while processing receipt: \" .. tostring(saveResult))\n\t\treturn Enum.ProductPurchaseDecision.NotProcessedYet\n\tend\n\n\t-- We now know the purchase has been correctly handled in the current session, and the changes\n\t-- have been saved to the DataStore so we are free to mark this purchase as finalized\n\treturn Enum.ProductPurchaseDecision.PurchaseGranted\nend\n\nreturn ReceiptProcessor\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PurchaseHandling.PurchaseHandling.PlayerData"
+        }
+      }
+    },
+    {
+      "id": "s8-folder-playerdata",
+      "type": "scripted",
+      "body": "Add a Folder `PlayerData` under `Workspace.PurchaseHandling.PurchaseHandling` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.PurchaseHandling.PurchaseHandling",
+        "props": {
+          "Name": "PlayerData"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.PurchaseHandling.PurchaseHandling.PlayerData"
+      }
+    },
+    {
+      "id": "s9-waitforfirstasy",
+      "type": "codeEdit",
+      "body": "Add `waitForFirstAsy` (ModuleScript) under `Workspace.PurchaseHandling.PurchaseHandling.PlayerData`.",
+      "target": {
+        "path": "Workspace.PurchaseHandling.PurchaseHandling.PlayerData.waitForFirstAsy",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tTakes an arbitrary number of callback, and executes them in parallel, returning the results of the first to return.\n\tIf an error is thrown, that error is bubbled up to the main thread.\n\tWhen the first callback returns, the rest are cancelled using task.cancel.\n\n\tExposes similar functionality that Promise.race provides for promises, but for asynchronous lua callbacks\n--]]\n\ntype Callback = () -> ...any\n\nlocal function waitForFirstAsync(...: Callback)\n\tlocal thisThread = coroutine.running()\n\tlocal resumed = false\n\tlocal errorThrown: any\n\n\tlocal function resume(...: any)\n\t\tif resumed then\n\t\t\treturn\n\t\tend\n\t\tresumed = true\n\n\t\ttask.spawn(thisThread, ...)\n\tend\n\n\tfor _, callback in ipairs({ ... }) do\n\t\ttask.defer(function()\n\t\t\t-- We are capturing all values returned by pcall into a table so we can resume this thread\n\t\t\t-- with all values if multiple are returned\n\t\t\tlocal pcallReturnValues = { pcall(callback) }\n\t\t\tif not pcallReturnValues[1] then\n\t\t\t\terrorThrown = pcallReturnValues[2]\n\t\t\tend\n\n\t\t\tresume(table.unpack(pcallReturnValues, 2))\n\t\tend)\n\tend\n\n\tlocal returnValues = { coroutine.yield() }\n\n\tif errorThrown then\n\t\t-- Return the stack trace three callers up to where the function passed into waitForFirstAsync was\n\t\t-- declared\n\t\terror(errorThrown, 3)\n\tend\n\n\treturn table.unpack(returnValues)\nend\n\nreturn waitForFirstAsync\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PurchaseHandling.PurchaseHandling.PlayerData.waitForFirstAsy"
+        }
+      }
+    },
+    {
+      "id": "s10-example",
+      "type": "codeEdit",
+      "body": "Add `Example` (Script) under `Workspace.PurchaseHandling`.",
+      "target": {
+        "path": "Workspace.PurchaseHandling.Example",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "local ReceiptProcessor = require(script.Parent.PurchaseHandling.ReceiptProcessor)\nlocal PlayerDataServer = require(script.Parent.PurchaseHandling.PlayerData.Server)\n\nlocal DEV_PRODUCT_ID = 1\n\nPlayerDataServer.start({ coins = 0 }, \"playerData\")\n\nReceiptProcessor.registerProductCallback(DEV_PRODUCT_ID, function(player)\n\tPlayerDataServer.updateValue(player, \"coins\", function(oldValue)\n\t\treturn oldValue + 1\n\tend)\nend)\n\nReceiptProcessor.start()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.PurchaseHandling.Example"
+        }
+      }
+    },
+    {
+      "id": "s11-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.PurchaseHandling` in the Explorer to see the assembled result."
+    }
+  ]
+}

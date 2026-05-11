@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "loading-screen",
+  "title": "Loading Screen",
+  "goal": "Demonstrates an example of a loading screen. The `updateDetailText` function provides the ability to update text on the loading screen with information on what is happening behind the scenes. A spinner gives the user confidence that the game is still running.",
+  "tags": [
+    "General",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates an example of a loading screen. The `updateDetailText` function provides the ability to update text on the loading screen with information on what is happening behind the scenes. A spinner gives the user confidence that the game is still running.\n\nNote: the sample must be placed within ReplicatedFirst to work properly.\n\nThis sample was ported from `solutions-samples/loading-screen`. Every step is deterministic \u2014 watch the components assemble under `Workspace.LoadingScreen`."
+    },
+    {
+      "id": "s2-folder-loadingscreen",
+      "type": "scripted",
+      "body": "Add a Folder `LoadingScreen` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "LoadingScreen"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.LoadingScreen"
+      }
+    },
+    {
+      "id": "s3-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.LoadingScreen`.",
+      "target": {
+        "path": "Workspace.LoadingScreen.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tThe task.wait() calls below are placeholders for calling asynchronous functions\n\tthat would load parts of your game.\n--]]\n\nlocal ContentProvider = game:GetService(\"ContentProvider\")\n\nlocal LoadingScreen = require(script.Parent.LoadingScreen)\n\nlocal REQUIRED_ASSETS = {\n\t-- Instances or content strings that are important to display first\n}\n\nLoadingScreen.enableAsync()\nLoadingScreen.updateDetailText(\"Preloading important assets...\")\nContentProvider:PreloadAsync(REQUIRED_ASSETS)\nLoadingScreen.updateDetailText(\"Initializing...\")\ntask.wait(1.5)\nLoadingScreen.updateDetailText(\"Loading user data...\")\ntask.wait(3)\nLoadingScreen.updateDetailText(\"Spawning character...\")\ntask.wait(3)\nLoadingScreen.updateDetailText(\"Finishing up...\")\ntask.wait(0.5)\nLoadingScreen.disableAsync()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LoadingScreen.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s4-loadingscreen",
+      "type": "codeEdit",
+      "body": "Add `LoadingScreen` (ModuleScript) under `Workspace.LoadingScreen`.",
+      "target": {
+        "path": "Workspace.LoadingScreen.LoadingScreen",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tA simple loading screen class. Includes a spinner and a text label.\n\n\tUse \"enableAsync\" to enable the loading screen.\n\tThe \"updateDetailText\" function allows for updating the text on the loading screen.\n\tUse \"disableAsync\" to disable the loading screen, which fades out the background, and destroys the loading screen object.\n--]]\n\nlocal ReplicatedFirst = game:GetService(\"ReplicatedFirst\")\nlocal Players = game:GetService(\"Players\")\nlocal RunService = game:GetService(\"RunService\")\nlocal TweenService = game:GetService(\"TweenService\")\n\nlocal loadingScreenPrefab = script.Parent.LoadingScreenPrefab\nlocal localPlayer = Players.LocalPlayer :: Player\n\nlocal MIN_RUNTIME = 2\nlocal FADE_LENGTH = 1\nlocal SPINNER_REVOLUTIONS_PER_SECOND = 1\nlocal DEGREES_PER_REVOLUTION = 360\n\nlocal LoadingScreen = {}\nLoadingScreen._instance = loadingScreenPrefab:Clone() :: ScreenGui\nLoadingScreen._startTime = 0\nLoadingScreen._spinnerConnection = nil :: RBXScriptConnection?\n\nfunction LoadingScreen.enableAsync()\n\tlocal playerGui = localPlayer:WaitForChild(\"PlayerGui\")\n\tLoadingScreen._instance.Parent = playerGui\n\n\t-- Now our loading screen is in place, we can remove Roblox's default one\n\tReplicatedFirst:RemoveDefaultLoadingScreen()\n\n\tLoadingScreen._startTime = os.clock()\n\n\t-- We aren't using getInstance here (or elsewhere in this file) as it is a descendant of ReplicatedStorage and we\n\t-- don't want to wait for it to load since this is a loading screen in ReplicatedFirst\n\tlocal spinnerLabel = LoadingScreen._instance\n\t\t:FindFirstChild(\"SizingFrame\")\n\t\t:FindFirstChild(\"ContentFrame\")\n\t\t:FindFirstChild(\"SpinnerImageLabel\") :: ImageLabel\n\tLoadingScreen._spinnerConnection = RunService.Heartbeat:Connect(function(deltaTime: number)\n\t\tspinnerLabel.Rotation += (SPINNER_REVOLUTIONS_PER_SECOND * DEGREES_PER_REVOLUTION * deltaTime)\n\tend)\n\tLoadingScreen._startTime = os.clock()\nend\n\nfunction LoadingScreen.updateDetailText(text: string)\n\tlocal detailTextLabel = LoadingScreen._instance\n\t\t:FindFirstChild(\"SizingFrame\")\n\t\t:FindFirstChild(\"ContentFrame\")\n\t\t:FindFirstChild(\"TextContentFrame\")\n\t\t:FindFirstChild(\"DetailTextLabel\") :: TextLabel\n\n\tdetailTextLabel.Text = text\nend\n\nfunction LoadingScreen.disableAsync()\n\t-- The loading screen flickering for a split second is jarring, so we\n\t-- are implementing a minimum runtime\n\tlocal runTime = os.clock() - LoadingScreen._startTime\n\ttask.wait(math.max(0, MIN_RUNTIME - runTime))\n\n\tif LoadingScreen._spinnerConnection then\n\t\tLoadingScreen._spinnerConnection:Disconnect()\n\tend\n\n\tlocal sizingFrame = LoadingScreen._instance:FindFirstChild(\"SizingFrame\") :: Frame\n\tlocal contentFrame = sizingFrame:FindFirstChild(\"ContentFrame\") :: Frame\n\tcontentFrame.Visible = false\n\n\tlocal fadeTweenBackground = TweenService:Create(\n\t\tLoadingScreen._instance:FindFirstChild(\"Background\") :: Frame,\n\t\tTweenInfo.new(FADE_LENGTH),\n\t\t{ BackgroundTransparency = 1 }\n\t)\n\n\ttask.spawn(function()\n\t\tfadeTweenBackground:Play()\n\t\tfadeTweenBackground.Completed:Wait()\n\t\tLoadingScreen._instance:Destroy()\n\tend)\nend\n\nreturn LoadingScreen\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LoadingScreen.LoadingScreen"
+        }
+      }
+    },
+    {
+      "id": "s5-clone-loadingscreenprefab",
+      "type": "scripted",
+      "body": "Clone the bundled `LoadingScreenPrefab` instance tree into `Workspace.LoadingScreen`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.loading-screen.LoadingScreenPrefab",
+        "parent": "Workspace.LoadingScreen",
+        "name": "LoadingScreenPrefab"
+      },
+      "focus": {
+        "selection": "Workspace.LoadingScreen.LoadingScreenPrefab"
+      }
+    },
+    {
+      "id": "s6-readme",
+      "type": "codeEdit",
+      "body": "Add `README` (ModuleScript) under `Workspace.LoadingScreen`.",
+      "target": {
+        "path": "Workspace.LoadingScreen.README",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--[[\n\tPlace the \"LoadingScreen\" parent folder within ReplicatedFirst for this sample to work properly.\n--]]\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LoadingScreen.README"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.LoadingScreen` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.loading-screen.LoadingScreenPrefab",
+      "name": "LoadingScreenPrefab",
+      "description": "Bundled instance tree from solutions-samples/loading-screen."
+    }
+  ]
+}

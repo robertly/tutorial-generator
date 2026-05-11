@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "character-loaded-wrapper",
+  "title": "Character Loaded Wrapper",
+  "goal": "Provides an API to use when referencing a Player's character to make sure it is \"Fully loaded\", which is defined as:",
+  "tags": [
+    "Player & Character",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Provides an API to use when referencing a Player's character to make sure it is \"Fully loaded\", which is defined as:\n  1) Character is a descendant of workspace\n  2) Character has a PrimaryPart set\n  3) Character contains a child which is a Humanoid\n  4) The Humanoid's RootPart property is not nil\n\nThis sample was ported from `solutions-samples/character-loaded-wrapper`. Every step is deterministic \u2014 watch the components assemble under `Workspace.CharacterLoadedWrapper`."
+    },
+    {
+      "id": "s2-folder-characterloadedwrapper",
+      "type": "scripted",
+      "body": "Add a Folder `CharacterLoadedWrapper` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "CharacterLoadedWrapper"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CharacterLoadedWrapper"
+      }
+    },
+    {
+      "id": "s3-characterloadedwrapper",
+      "type": "codeEdit",
+      "body": "Add `CharacterLoadedWrapper` (ModuleScript) under `Workspace.CharacterLoadedWrapper`.",
+      "target": {
+        "path": "Workspace.CharacterLoadedWrapper.CharacterLoadedWrapper",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tProvides an API to use when referencing a Player's character\n\tto make sure it is \"Fully loaded\", which is defined as:\n\t\t1) Character is a descendant of workspace\n\t\t2) Character has a PrimaryPart set\n\t\t3) Character contains a child which is a Humanoid\n\t\t4) The Humanoid's RootPart property is not nil\n\n\tThis differs from Player.CharacterAdded and Player.CharacterAppearanceLoaded which fire\n\tbefore a character is parented to workspace and does not guarantee these other conditions.\n\n\tThis wrapper provides a died event when the first of the following happens:\n\n\t1) Humanoid's .Died event fires\n\t2) Character is removed\n\n\tWe need this because there are some cases where a character can be removed without the humanoid dying,\n\tsuch as if :LoadCharacter() is called before a character dies. Cleanup code often needs to run when a\n\tcharacter's \"lifespan\" is over, whether it be because the humanoid died or because the character is removed.\n\tTo avoid having to connect to both events in multiple places, this wrapper moves both events into one.\n--]]\n\nlocal Workspace = game:GetService(\"Workspace\")\n\nlocal Signal = require(script.Signal)\n\nlocal function isPrimaryPartSet(character: Model)\n\treturn if character.PrimaryPart then true else false\nend\n\nlocal function isHumanoidRootPartSet(humanoid: Humanoid)\n\treturn if humanoid.RootPart then true else false\nend\n\nlocal function getHumanoid(character: Model)\n\treturn character:FindFirstChildOfClass(\"Humanoid\")\nend\n\nlocal function isHumanoidAlive(character: Model)\n\tlocal humanoidMaybe = getHumanoid(character)\n\tif not humanoidMaybe then\n\t\treturn false\n\tend\n\n\tlocal humanoid = humanoidMaybe :: Humanoid\n\treturn isHumanoidRootPartSet(humanoid) and humanoid.Health > 0\nend\n\nlocal CharacterLoadedWrapper = {}\nCharacterLoadedWrapper.__index = CharacterLoadedWrapper\n\nfunction CharacterLoadedWrapper.new(player: Player): any\n\tlocal self = {\n\t\tloaded = Signal.new(),\n\t\tdied = Signal.new(),\n\t\t_player = player,\n\t\t_destroyed = false,\n\t\t_connections = {},\n\t}\n\tsetmetatable(self, CharacterLoadedWrapper)\n\n\tself:_listenForCharacterAdded()\n\n\treturn self\nend\n\nfunction CharacterLoadedWrapper:isLoaded(optionalCharacter: Model?)\n\t-- Character can be passed in to check if a specific character model is\n\t-- the currently loaded character model. Useful if you are maintaining a reference\n\t-- to a specific character model, you want to verify that :isLoaded() is true, but\n\t-- you also want to make sure your current character reference isn't out of date.\n\tlocal characterMaybe = optionalCharacter or self._player.Character\n\tif not characterMaybe then\n\t\treturn false\n\tend\n\n\tlocal character = characterMaybe :: Model\n\n\treturn isPrimaryPartSet(character) and isHumanoidAlive(character) and character:IsDescendantOf(Workspace)\nend\n\nfunction CharacterLoadedWrapper:_listenForCharacterAdded()\n\ttask.spawn(function()\n\t\tlocal character = self._player.Character\n\n\t\t-- Avoids firing .loaded event when the character is already loaded\n\t\tif character then\n\t\t\tif self:isLoaded() then\n\t\t\t\tself:_listenForDeath(character)\n\t\t\telse\n\t\t\t\tself:_waitForLoadedAsync(character)\n\t\t\tend\n\t\tend\n\n\t\tlocal characterAddedConnection = self._player.CharacterAdded:Connect(function(newCharacter: Model)\n\t\t\tself:_waitForLoadedAsync(newCharacter)\n\t\tend)\n\n\t\ttable.insert(self._connections, characterAddedConnection)\n\tend)\nend\n\n-- This function assumes the character exists when it's called and has default behavior,\n-- i.e. developer is not parenting the character somewhere manually\nfunction CharacterLoadedWrapper:_waitForLoadedAsync(character: Model)\n\tif not self:isLoaded() then\n\t\t-- Wait until the character is in Workspace so that the following conditions don't skip running.\n\t\t-- If the character is destroyed after this and never parented, :Wait() never resumes, causing the thread\n\t\t-- to yield forever, preventing the character from being garbage collected.\n\t\tif not character:IsDescendantOf(Workspace) then\n\t\t\t-- The character should be in workspace after waiting. However, deferred events may\n\t\t\t-- cause a character to get parented in and then back out before this :Wait() resumes,\n\t\t\t-- so we still need to check character.Parent later\n\t\t\tcharacter.AncestryChanged:Wait()\n\t\tend\n\n\t\t-- Check character.Parent to avoid starting a :Wait() if the character is already destroyed\n\t\t-- which would keep the character from being garbage collected\n\t\tif character.Parent then\n\t\t\tif not isPrimaryPartSet(character) then\n\t\t\t\tcharacter:GetPropertyChangedSignal(\"PrimaryPart\"):Wait()\n\t\t\tend\n\n\t\t\tlocal humanoidMaybe = getHumanoid(character)\n\t\t\tif not humanoidMaybe then\n\t\t\t\t-- Wait for Humanoid to be added to the Character\n\t\t\t\thumanoidMaybe = character:FindFirstChildOfClass(\"Humanoid\") :: Humanoid\n\t\t\t\twhile not humanoidMaybe do\n\t\t\t\t\tcharacter.ChildAdded:Wait()\n\t\t\t\t\thumanoidMaybe = character:FindFirstChildOfClass(\"Humanoid\") :: Humanoid\n\t\t\t\tend\n\t\t\tend\n\n\t\t\tlocal humanoid = humanoidMaybe :: Humanoid\n\t\t\twhile not isHumanoidRootPartSet(humanoid) do\n\t\t\t\thumanoid.Changed:Wait() -- GetPropertyChangedSignal doesn't fire for RootPart, so we rely on .Changed\n\t\t\tend\n\t\tend\n\n\t\t-- Verify the character hasn't been destroyed and that no loaded criteria has become un-met.\n\t\t-- For example, the Humanoid being destroyed before the PrimaryPart was set\n\t\tif not self:isLoaded(character) then\n\t\t\treturn\n\t\tend\n\tend\n\n\t-- Make sure this class wasn't destroyed while waiting for conditions to be true\n\tif self._destroyed then\n\t\treturn\n\tend\n\n\tself:_listenForDeath(character)\n\tself.loaded:Fire(character)\nend\n\nfunction CharacterLoadedWrapper:_listenForDeath(character: Model)\n\t-- Debounce to prevent deferred events from letting .died event fire more than once,\n\t-- such as if the humanoid dies and the character is destroyed in the same compute cycle.\n\t-- With deferred events, that would fire both events on the next cycle, even if the connection\n\t-- is disconnected within the response to the event.\n\tlocal humanoid = getHumanoid(character) :: Humanoid\n\n\tlocal alreadyDied = false\n\tlocal diedConnection, removedConnection\n\n\tlocal function onDied()\n\t\tif alreadyDied then\n\t\t\treturn\n\t\tend\n\t\talreadyDied = true\n\n\t\tdiedConnection:Disconnect()\n\t\tremovedConnection:Disconnect()\n\t\tself.died:Fire(character)\n\tend\n\n\tdiedConnection = humanoid.Died:Connect(onDied)\n\n\t-- .Destroying event would be preferred, but :LoadCharacter() just removes\n\t-- the character instead of destroying it. As long as that is the case, we\n\t-- can't use .Destroying to cover all edge cases.\n\tremovedConnection = character.AncestryChanged:Connect(function()\n\t\tif not character:IsDescendantOf(Workspace) then\n\t\t\tonDied()\n\t\tend\n\tend)\n\n\ttable.insert(self._connections, diedConnection)\n\ttable.insert(self._connections, removedConnection)\nend\n\nfunction CharacterLoadedWrapper:destroy()\n\tself.loaded:DisconnectAll()\n\tself.died:DisconnectAll()\n\tself._destroyed = true\n\n\tfor _, connection in pairs(self._connections) do\n\t\tconnection:Disconnect()\n\tend\nend\n\nreturn CharacterLoadedWrapper\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CharacterLoadedWrapper.CharacterLoadedWrapper"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.CharacterLoadedWrapper` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.CharacterLoadedWrapper",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CharacterLoadedWrapper.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.CharacterLoadedWrapper.Demo`.",
+      "target": {
+        "path": "Workspace.CharacterLoadedWrapper.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tProvides an API to use when referencing a Player's character to make sure it is \"Fully loaded\", which is defined as:\n\t\t1) Character is a descendant of workspace\n\t\t2) Character has a PrimaryPart set\n\t\t3) Character contains a child which is a Humanoid\n\t\t4) The Humanoid's RootPart property is not nil\n\n\tThis differs from Player.CharacterAdded and Player.CharacterAppearanceLoaded which fire before a character is parented to workspace and does not guarantee these other conditions.\n\n\tThis wrapper provides a died event when the first of the following happens:\n\t\t1) Humanoid's .Died event fires\n\t\t2) Character is removed\n\n\tThis can be useful for cases where a character can be removed without the humanoid dying, such as if :LoadCharacter() is called before a character dies.\n\tCleanup code often needs to run when a character's \"lifespan\" is over, whether it be because the humanoid died or because the character is removed.\n\tTo avoid having to connect to both events in multiple places, this wrapper moves both events into one.\n--]]\n\nlocal Players = game:GetService(\"Players\")\n\nlocal CharacterLoadedWrapper = require(script.Parent.Parent.CharacterLoadedWrapper)\n\nlocal function onPlayerAdded(player: Player)\n\tlocal characterLoadedWrapper = CharacterLoadedWrapper.new(player)\n\tcharacterLoadedWrapper.loaded:Connect(function()\n\t\tprint(string.format(\"[CharacterLoadedWrapper] %s character loaded\", player.Name))\n\tend)\n\tcharacterLoadedWrapper.died:Connect(function()\n\t\tprint(string.format(\"[CharacterLoadedWrapper] %s character died\", player.Name))\n\tend)\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CharacterLoadedWrapper.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.CharacterLoadedWrapper` in the Explorer to see the assembled result."
+    }
+  ]
+}

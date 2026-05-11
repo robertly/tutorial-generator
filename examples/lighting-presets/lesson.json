@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "id": "lighting-presets",
+  "title": "Lighting Presets",
+  "goal": "Demonstrates a system for storing lighting presets and updating the lighting settings from those presets. Presets can be set directly or tweened between to create e.g. a day/night cycle.",
+  "tags": [
+    "General",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates a system for storing lighting presets and updating the lighting settings from those presets. Presets can be set directly or tweened between to create e.g. a day/night cycle.\n\nThis sample was ported from `solutions-samples/lighting-presets`. Every step is deterministic \u2014 watch the components assemble under `Workspace.LightingPresets`."
+    },
+    {
+      "id": "s2-folder-lightingpresets",
+      "type": "scripted",
+      "body": "Add a Folder `LightingPresets` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "LightingPresets"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.LightingPresets"
+      }
+    },
+    {
+      "id": "s3-lightingpresets",
+      "type": "codeEdit",
+      "body": "Add `LightingPresets` (ModuleScript) under `Workspace.LightingPresets`.",
+      "target": {
+        "path": "Workspace.LightingPresets.LightingPresets",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\nlocal Lighting = game:GetService(\"Lighting\")\nlocal TweenService = game:GetService(\"TweenService\")\n\nlocal Properties = require(script.Properties)\n\n-- When set to true, ClockTime will not be able to run backwards while tweening between presets\nlocal ENFORCE_CLOCK_DIRECTION = true\n\nlocal DEFAULT_EASING_STYLE = Enum.EasingStyle.Linear\nlocal DEFAULT_EASING_DIRECTION = Enum.EasingDirection.Out\n\nlocal LightingPresets = {}\n\n-- Set lighting settings to the specified preset\nfunction LightingPresets.setLighting(preset: Configuration)\n\t-- Remove any post effects not included in the preset\n\tfor _, postEffect in Lighting:GetChildren() do\n\t\tif not preset:FindFirstChild(postEffect.Name) then\n\t\t\tpostEffect:Destroy()\n\t\tend\n\tend\n\n\t-- Set lighting properties\n\tfor _, property in Properties.Lighting do\n\t\tlocal value = preset:GetAttribute(property)\n\t\tif value == nil then\n\t\t\tcontinue\n\t\tend\n\t\t-- Setting properties dynamically like this is unsafe and usually not recommended, as it can lead to runtime errors\n\t\t-- Since the list of properties we are accessing has been pre-set, this is not an issue here\n\t\t-- By casting Lighting to any, we avoid the warning about dynamic property access\n\t\t(Lighting :: any)[property] = value\n\tend\n\n\t-- Set properties for any PostEffects, Ambience, Sky\n\tfor _, postEffect in preset:GetChildren() do\n\t\tif Properties[postEffect.ClassName] then\n\t\t\tlocal lightingInstance = Lighting:FindFirstChild(postEffect.Name)\n\t\t\t-- If the instance doesn't exist already, clone it from the preset\n\t\t\tif not lightingInstance then\n\t\t\t\tlocal clone = postEffect:Clone()\n\t\t\t\tclone.Parent = Lighting\n\t\t\t\tlightingInstance = clone\n\t\t\tend\n\n\t\t\t-- Set the instance properties\n\t\t\tfor _, property in Properties[postEffect.ClassName] do\n\t\t\t\t-- Cast to any to avoid warnings about dynamic property access\n\t\t\t\t(lightingInstance :: any)[property] = (postEffect :: any)[property]\n\t\t\tend\n\t\tend\n\tend\nend\n\n-- Tween lighting settings to the specified preset\nfunction LightingPresets.tweenLightingAsync(\n\tpreset: Configuration,\n\ttweenTime: number,\n\teasingStyle: Enum.EasingStyle?,\n\teasingDirection: Enum.EasingDirection?\n)\n\t-- Remove any post effects not included in the preset\n\tfor _, postEffect in Lighting:GetChildren() do\n\t\tif not preset:FindFirstChild(postEffect.Name) then\n\t\t\tpostEffect:Destroy()\n\t\tend\n\tend\n\n\tlocal tweenInfo =\n\t\tTweenInfo.new(tweenTime, easingStyle or DEFAULT_EASING_STYLE, easingDirection or DEFAULT_EASING_DIRECTION)\n\n\t-- Create a table of properties to tween\n\tlocal lightingProperties = {}\n\tfor _, property in Properties.Lighting do\n\t\tlocal value = preset:GetAttribute(property)\n\t\tif value == nil then\n\t\t\tcontinue\n\t\tend\n\t\tif typeof(value) == \"string\" then\n\t\t\t-- Property is not tweenable, set it directly\n\t\t\t-- Cast to any to avoid warnings about dynamic property access\n\t\t\t(Lighting :: any)[property] = value\n\t\telse\n\t\t\tlightingProperties[property] = value\n\t\tend\n\tend\n\n\t-- Keep the sun from moving backwards through the sky\n\tif ENFORCE_CLOCK_DIRECTION then\n\t\tif lightingProperties.ClockTime and lightingProperties.ClockTime < Lighting.ClockTime then\n\t\t\t-- Since Lighting.ClockTime is clamped 0-24, we create a proxy NumberValue to tween.\n\t\t\t-- The value from this proxy is modulo'd and applied back to Lighting.ClockTime.\n\t\t\tlocal clockTime = lightingProperties.ClockTime\n\t\t\tlightingProperties.ClockTime = nil\n\n\t\t\tlocal clockTimeProxy = Instance.new(\"NumberValue\")\n\t\t\tclockTimeProxy.Value = Lighting.ClockTime\n\n\t\t\tlocal connection = clockTimeProxy:GetPropertyChangedSignal(\"Value\"):Connect(function()\n\t\t\t\tLighting.ClockTime = clockTimeProxy.Value % 24\n\t\t\tend)\n\n\t\t\tlocal clockTimeTween = TweenService:Create(clockTimeProxy, tweenInfo, { Value = clockTime + 24 })\n\t\t\tclockTimeTween.Completed:Once(function()\n\t\t\t\tconnection:Disconnect()\n\t\t\t\tclockTimeProxy:Destroy()\n\t\t\tend)\n\t\t\tclockTimeTween:Play()\n\t\tend\n\tend\n\n\tlocal lightingTween = TweenService:Create(Lighting, tweenInfo, lightingProperties)\n\tlightingTween:Play()\n\n\t-- Create and play tweens for any PostEffects, Ambience, Sky\n\tfor _, postEffect in preset:GetChildren() do\n\t\tif Properties[postEffect.ClassName] then\n\t\t\tlocal lightingInstance = Lighting:FindFirstChild(postEffect.Name)\n\t\t\t-- If the instance doesn't exist already, clone it from the parent\n\t\t\tif not lightingInstance then\n\t\t\t\tlocal clone = postEffect:Clone()\n\t\t\t\tclone.Parent = Lighting\n\t\t\t\tlightingInstance = clone\n\t\t\tend\n\n\t\t\tlocal properties = {}\n\t\t\tfor _, property in Properties[postEffect.ClassName] do\n\t\t\t\t-- Cast to any to avoid warnings about dynamic property access\n\t\t\t\tlocal value = (postEffect :: any)[property]\n\t\t\t\tif value == nil then\n\t\t\t\t\tcontinue\n\t\t\t\tend\n\t\t\t\tif typeof(value) == \"string\" then\n\t\t\t\t\t-- Property is not tweenable, set it directly\n\t\t\t\t\t-- Cast to any to avoid warnings about dynamic property access\n\t\t\t\t\t(lightingInstance :: any)[property] = value\n\t\t\t\telse\n\t\t\t\t\tproperties[property] = value\n\t\t\t\tend\n\t\t\tend\n\t\t\t-- Create and play tween\n\t\t\tlocal tween = TweenService:Create(lightingInstance, tweenInfo, properties)\n\t\t\ttween:Play()\n\t\tend\n\tend\n\n\ttask.wait(tweenTime)\nend\n\n-- Create a lighting preset from a dictionary of properties and array of instances\nfunction LightingPresets.createPreset(lightingProperties: { [string]: any }, lightingInstances: { any }?): Configuration\n\tlocal preset = Instance.new(\"Configuration\")\n\n\tfor property, value in lightingProperties do\n\t\tif table.find(Properties.Lighting, property) then\n\t\t\tpreset:SetAttribute(property, value)\n\t\tend\n\tend\n\n\tif lightingInstances then\n\t\tfor _, postEffect in lightingInstances do\n\t\t\tpostEffect.Parent = preset\n\t\tend\n\tend\n\n\treturn preset\nend\n\n-- Create a lighting preset from the current lighting properties\n-- This can be used from the command line to easily create a new preset\nfunction LightingPresets.createPresetFromCurrentSettings(): Configuration\n\tlocal lightingProperties: { [string]: any } = {}\n\tlocal lightingInstances: { Instance } = {}\n\n\tfor _, property in Properties.Lighting do\n\t\t-- Cast to any to avoid warnings about dynamic property access\n\t\tlightingProperties[property] = (Lighting :: any)[property]\n\tend\n\n\tfor _, child in Lighting:GetChildren() do\n\t\tif child:IsA(\"PostEffect\") or child:IsA(\"Atmosphere\") or child:IsA(\"Sky\") then\n\t\t\tlocal clone = child:Clone()\n\t\t\ttable.insert(lightingInstances, clone)\n\t\tend\n\tend\n\n\treturn LightingPresets.createPreset(lightingProperties, lightingInstances)\nend\n\nreturn LightingPresets\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LightingPresets.LightingPresets"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-lightingpresets",
+      "type": "scripted",
+      "body": "Add a Folder `LightingPresets` under `Workspace.LightingPresets` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.LightingPresets",
+        "props": {
+          "Name": "LightingPresets"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.LightingPresets.LightingPresets"
+      }
+    },
+    {
+      "id": "s5-prop",
+      "type": "codeEdit",
+      "body": "Add `Prop` (ModuleScript) under `Workspace.LightingPresets.LightingPresets`.",
+      "target": {
+        "path": "Workspace.LightingPresets.LightingPresets.Prop",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n-- As there is no API to get the properties of an instance, all properties we wish to change have been hardcoded here\n\nlocal Properties = {\n\tLighting = {\n\t\t\"Ambient\",\n\t\t\"Brightness\",\n\t\t\"ColorShift_Bottom\",\n\t\t\"ColorShift_Top\",\n\t\t\"EnvironmentDiffuseScale\",\n\t\t\"EnvironmentSpecularScale\",\n\t\t\"GlobalShadows\",\n\t\t\"OutdoorAmbient\",\n\t\t\"ShadowSoftness\",\n\t\t\"ClockTime\",\n\t\t\"GeographicLatitude\",\n\t\t\"ExposureCompensation\",\n\t},\n\tSky = {\n\t\t\"CelestialBodiesShown\",\n\t\t\"MoonAngularSize\",\n\t\t\"MoonTextureId\",\n\t\t\"SkyboxBk\",\n\t\t\"SkyboxDn\",\n\t\t\"SkyboxFt\",\n\t\t\"SkyboxLf\",\n\t\t\"SkyboxRt\",\n\t\t\"SkyboxUp\",\n\t\t\"StarCount\",\n\t\t\"SunAngularSize\",\n\t\t\"SunTextureId\",\n\t},\n\tAtmosphere = {\n\t\t\"Density\",\n\t\t\"Offset\",\n\t\t\"Color\",\n\t\t\"Decay\",\n\t\t\"Glare\",\n\t\t\"Haze\",\n\t},\n\tBloomEffect = {\n\t\t\"Enabled\",\n\t\t\"Intensity\",\n\t\t\"Size\",\n\t\t\"Threshold\",\n\t},\n\tBlurEffect = {\n\t\t\"Enabled\",\n\t\t\"Size\",\n\t},\n\tColorCorrectionEffect = {\n\t\t\"Brightness\",\n\t\t\"Contrast\",\n\t\t\"Enabled\",\n\t\t\"Saturation\",\n\t\t\"TintColor\",\n\t},\n\tDepthOfFieldEffect = {\n\t\t\"Enabled\",\n\t\t\"FarIntensity\",\n\t\t\"FocusDistance\",\n\t\t\"InFocusRadius\",\n\t\t\"NearIntensity\",\n\t},\n\tSunRaysEffect = {\n\t\t\"Enabled\",\n\t\t\"Intensity\",\n\t\t\"Spread\",\n\t},\n}\n\nreturn Properties\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LightingPresets.LightingPresets.Prop"
+        }
+      }
+    },
+    {
+      "id": "s6-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.LightingPresets` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.LightingPresets",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.LightingPresets.Demo"
+      }
+    },
+    {
+      "id": "s7-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (LocalScript) under `Workspace.LightingPresets.Demo`.",
+      "target": {
+        "path": "Workspace.LightingPresets.Demo.DemoScript",
+        "create": true,
+        "class": "LocalScript"
+      },
+      "source": "--!strict\n\nlocal LightingPresets = require(script.Parent.Parent.LightingPresets)\nlocal presets = script.Parent.Presets\n\nlocal TWEEN_TIME = 3 -- Time to tween to each preset\nlocal INTERVAL_TIME = 3 -- Time between each preset\nlocal EASING_STYLE = Enum.EasingStyle.Quad\nlocal EASING_DIRECTION = Enum.EasingDirection.InOut\n\n-- Presets are stored as Configuration objects rather than Folders to create\n-- the distinction of 'useful object' vs purely organizational\nlocal PRESETS: { Configuration } = {\n\tpresets.Dawn,\n\tpresets.Midday,\n\tpresets.Dusk,\n\tpresets.Night,\n}\n\nlocal presetIndex = 1\n\nlocal function initialize()\n\t-- Initialize lighting to the current presetIdnex\n\tLightingPresets.setLighting(PRESETS[presetIndex])\n\n\ttask.spawn(function()\n\t\t-- Loop through the PRESETS list to create a day/night cycle\n\t\twhile true do\n\t\t\tpresetIndex += 1\n\t\t\tif presetIndex > #PRESETS then\n\t\t\t\tpresetIndex = 1\n\t\t\tend\n\n\t\t\tLightingPresets.tweenLightingAsync(PRESETS[presetIndex], TWEEN_TIME, EASING_STYLE, EASING_DIRECTION)\n\t\t\ttask.wait(INTERVAL_TIME)\n\t\tend\n\tend)\nend\n\ninitialize()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.LightingPresets.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s8-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.LightingPresets` in the Explorer to see the assembled result."
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "toggle-gui-frames",
+  "title": "Toggling Gui Frames",
+  "goal": "Demonstrates how to show and hide different frames within a Gui. The example starts with a menu button visible to the player. When pressed, the menu button is hidden and a menu window appears. Clicking the 'X' at the top right corner of the menu will bring the user back to the original view.",
+  "tags": [
+    "UI",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Demonstrates how to show and hide different frames within a Gui. The example starts with a menu button visible to the player. When pressed, the menu button is hidden and a menu window appears. Clicking the 'X' at the top right corner of the menu will bring the user back to the original view.\n\nThis sample was ported from `solutions-samples/toggle-gui-frames`. Every step is deterministic \u2014 watch the components assemble under `Workspace.ToggleGuiFrames`."
+    },
+    {
+      "id": "s2-folder-toggleguiframes",
+      "type": "scripted",
+      "body": "Add a Folder `ToggleGuiFrames` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "ToggleGuiFrames"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.ToggleGuiFrames"
+      }
+    },
+    {
+      "id": "s3-guitogglescript",
+      "type": "codeEdit",
+      "body": "Add `GuiToggleScript` (Script) under `Workspace.ToggleGuiFrames`.",
+      "target": {
+        "path": "Workspace.ToggleGuiFrames.GuiToggleScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tDemonstrates how to show and hide different frames within a Gui.\n\tThe example starts with a menu button visible to the player.\n\tWhen pressed, the menu button is hidden and a menu window appears.\n\tClicking the 'X' at the top right corner of the menu will bring the user back to the original view.\n--]]\n\nlocal Players = game:GetService(\"Players\")\nlocal player = Players.LocalPlayer\n\nlocal playerGui = player:WaitForChild(\"PlayerGui\")\nlocal mainGui = playerGui:WaitForChild(\"MainGui\")\n\n-- The frames to toggle visibility for\nlocal homeFrame = mainGui.HomeFrame\nlocal menuFrame = mainGui.MenuFrame\n\n-- The buttons to connect behavior to below\nlocal openMenuButton = homeFrame.OpenMenuButton\nlocal closeMenuButton = menuFrame.WindowFrame.CloseMenuButton\n\n-- Hides the menuFrame and shows the homeFrame\nlocal function showHomeFrame()\n\tmenuFrame.Visible = false\n\thomeFrame.Visible = true\nend\n\n-- Hides the homeFrame and shows the menuFrame\nlocal function showMenuFrame()\n\thomeFrame.Visible = false\n\tmenuFrame.Visible = true\nend\n\n-- Connect the menu buttons to their appropriate actions\nopenMenuButton.Activated:Connect(showMenuFrame)\ncloseMenuButton.Activated:Connect(showHomeFrame)\n\n-- Show the home frame initially\nshowHomeFrame()\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ToggleGuiFrames.GuiToggleScript"
+        }
+      }
+    },
+    {
+      "id": "s4-clone-maingui",
+      "type": "scripted",
+      "body": "Clone the bundled `MainGui` instance tree into `Workspace.ToggleGuiFrames`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.toggle-gui-frames.MainGui",
+        "parent": "Workspace.ToggleGuiFrames",
+        "name": "MainGui"
+      },
+      "focus": {
+        "selection": "Workspace.ToggleGuiFrames.MainGui"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.ToggleGuiFrames`.",
+      "target": {
+        "path": "Workspace.ToggleGuiFrames.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "local Players = game:GetService(\"Players\")\nlocal StarterGui = game:GetService(\"StarterGui\")\n\nlocal mainGui = script.Parent.MainGui\n\nfor _, player in Players:GetPlayers() do\n\tlocal gui = mainGui:Clone()\n\tgui.Parent = player.PlayerGui\nend\n\n-- Place MainGui into StarterGui so that all players who join will get it automatically\nmainGui.Parent = StarterGui\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.ToggleGuiFrames.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.ToggleGuiFrames` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.toggle-gui-frames.MainGui",
+      "name": "MainGui",
+      "description": "Bundled instance tree from solutions-samples/toggle-gui-frames."
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "id": "safe-player-added",
+  "title": "Safe Player Added",
+  "goal": "Calls the given callback for all existing players in the game, and any that join thereafter.",
+  "tags": [
+    "Player & Character",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Calls the given callback for all existing players in the game, and any that join thereafter.\n\nUseful in situations where you want to run code for every player, even players who are already in the game.\n\nThe DemoScript uses safePlayerAdded to ensure all players in the game have a billboard with their name above their character's heads.\n\nThis sample was ported from `solutions-samples/safe-player-added`. Every step is deterministic \u2014 watch the components assemble under `Workspace.SafePlayerAdded`."
+    },
+    {
+      "id": "s2-folder-safeplayeradded",
+      "type": "scripted",
+      "body": "Add a Folder `SafePlayerAdded` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "SafePlayerAdded"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.SafePlayerAdded"
+      }
+    },
+    {
+      "id": "s3-safeplayeradded",
+      "type": "codeEdit",
+      "body": "Add `safePlayerAdded` (ModuleScript) under `Workspace.SafePlayerAdded`.",
+      "target": {
+        "path": "Workspace.SafePlayerAdded.safePlayerAdded",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tCalls the given callback for all existing players in the game, and any that join thereafter.\n\n\tUseful in situations where you want to run code for every player, even players who are already in the game.\n--]]\n\nlocal Players = game:GetService(\"Players\")\n\nlocal function safePlayerAdded(onPlayerAddedCallback: (Player) -> nil)\n\tfor _, player in ipairs(Players:GetPlayers()) do\n\t\ttask.spawn(onPlayerAddedCallback, player)\n\tend\n\treturn Players.PlayerAdded:Connect(onPlayerAddedCallback)\nend\n\nreturn safePlayerAdded\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.SafePlayerAdded.safePlayerAdded"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.SafePlayerAdded` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.SafePlayerAdded",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.SafePlayerAdded.Demo"
+      }
+    },
+    {
+      "id": "s5-clone-namebillboardgui",
+      "type": "scripted",
+      "body": "Clone the bundled `NameBillboardGui` instance tree into `Workspace.SafePlayerAdded.Demo`.",
+      "action": {
+        "op": "cloneFromAssets",
+        "source": "ReplicatedStorage.TutorialAssets.safe-player-added.NameBillboardGui",
+        "parent": "Workspace.SafePlayerAdded.Demo",
+        "name": "NameBillboardGui"
+      },
+      "focus": {
+        "selection": "Workspace.SafePlayerAdded.Demo.NameBillboardGui"
+      }
+    },
+    {
+      "id": "s6-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.SafePlayerAdded.Demo`.",
+      "target": {
+        "path": "Workspace.SafePlayerAdded.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tCalls the given callback for all existing players in the game, and any that join thereafter.\n\tUseful in situations where you want to run code for every player, even players who are already in the game.\n\n\tThe DemoScript uses safePlayerAdded to ensure all players in the game have a billboard with their name above their character's heads.\n--]]\n\nlocal safePlayerAdded = require(script.Parent.Parent.safePlayerAdded)\n\nlocal nameBillboardGui = script.Parent.NameBillboardGui\n\nlocal function addBillboardToPlayer(player: Player)\n\tplayer.CharacterAdded:Connect(function(character: Model)\n\t\tlocal billboard = nameBillboardGui:Clone()\n\t\tlocal textLabel = billboard.TextLabel\n\t\ttextLabel.Text = player.Name\n\t\tbillboard.Enabled = true\n\t\tbillboard.Parent = character\n\tend)\nend\n\nsafePlayerAdded(addBillboardToPlayer)\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.SafePlayerAdded.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s7-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.SafePlayerAdded` in the Explorer to see the assembled result."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "model",
+      "source": "ReplicatedStorage.TutorialAssets.safe-player-added.NameBillboardGui",
+      "name": "NameBillboardGui",
+      "description": "Bundled instance tree from solutions-samples/safe-player-added."
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "create-instance-tree",
+  "title": "Create Instance Tree",
+  "goal": "Creates instances with given properties based on the given tree data table. This streamlines the tedious process of calling Instance.new and setting each property by creating a table of properties and a ClassName instead.",
+  "tags": [
+    "Utility",
+    "ported"
+  ],
+  "steps": [
+    {
+      "id": "s1-intro",
+      "type": "narrative",
+      "body": "Creates instances with given properties based on the given tree data table. This streamlines the tedious process of calling Instance.new and setting each property by creating a table of properties and a ClassName instead.\n\nThis sample was ported from `solutions-samples/create-instance-tree`. Every step is deterministic \u2014 watch the components assemble under `Workspace.CreateInstanceTree`."
+    },
+    {
+      "id": "s2-folder-createinstancetree",
+      "type": "scripted",
+      "body": "Add a Folder `CreateInstanceTree` under `Workspace` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace",
+        "props": {
+          "Name": "CreateInstanceTree"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CreateInstanceTree"
+      }
+    },
+    {
+      "id": "s3-createinstancetree",
+      "type": "codeEdit",
+      "body": "Add `createInstanceTree` (ModuleScript) under `Workspace.CreateInstanceTree`.",
+      "target": {
+        "path": "Workspace.CreateInstanceTree.createInstanceTree",
+        "create": true,
+        "class": "ModuleScript"
+      },
+      "source": "--!strict\n\n--[[\n\tCreates instances with given properties based on the given tree data table.\n\tThis streamlines the tedious process of calling Instance.new and setting each property\n\tby creating a table of properties and a ClassName instead.\n--]]\n\ntype PropertiesTable = { [string]: any }\n\ntype InstanceTree = {\n\tclassName: string,\n\tproperties: PropertiesTable?,\n\tchildren: { InstanceTree }?,\n}\n\nlocal function createInstanceTree(tree: InstanceTree)\n\tlocal object = Instance.new(tree.className)\n\n\tif tree.properties then\n\t\tfor property, value in pairs(tree.properties :: PropertiesTable) do\n\t\t\tassert(property ~= \"Parent\", \"Cannot set Parent as property through createInstanceTree\")\n\t\t\tobject[property] = value\n\t\tend\n\tend\n\n\tif tree.children then\n\t\tfor _, childTree in ipairs(tree.children :: { InstanceTree }) do\n\t\t\tlocal childObject = createInstanceTree(childTree)\n\t\t\tchildObject.Parent = object\n\t\tend\n\tend\n\n\treturn object\nend\n\nreturn createInstanceTree\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CreateInstanceTree.createInstanceTree"
+        }
+      }
+    },
+    {
+      "id": "s4-folder-demo",
+      "type": "scripted",
+      "body": "Add a Folder `Demo` under `Workspace.CreateInstanceTree` to hold this sample.",
+      "action": {
+        "op": "createInstance",
+        "class": "Folder",
+        "parent": "Workspace.CreateInstanceTree",
+        "props": {
+          "Name": "Demo"
+        }
+      },
+      "focus": {
+        "selection": "Workspace.CreateInstanceTree.Demo"
+      }
+    },
+    {
+      "id": "s5-demoscript",
+      "type": "codeEdit",
+      "body": "Add `DemoScript` (Script) under `Workspace.CreateInstanceTree.Demo`.",
+      "target": {
+        "path": "Workspace.CreateInstanceTree.Demo.DemoScript",
+        "create": true,
+        "class": "Script"
+      },
+      "source": "--[[\n\tCreates instances with given properties based on the given tree data table.\n\tThis streamlines the tedious process of calling Instance.new and setting each property by creating a table of properties and a ClassName instead.\n--]]\n\nlocal Workspace = game:GetService(\"Workspace\")\nlocal createInstanceTree = require(script.Parent.Parent.createInstanceTree)\n\n-- Creates a neon green sphere\nlocal sphere = createInstanceTree({\n\tclassName = \"Part\",\n\tproperties = {\n\t\tName = \"Sphere\",\n\t\tSize = Vector3.new(10, 10, 10),\n\t\tPosition = Vector3.new(-10, 10, -10),\n\t\tShape = Enum.PartType.Ball,\n\t\tMaterial = Enum.Material.Neon,\n\t\tColor = Color3.new(0, 1, 0),\n\t\tAnchored = true,\n\t},\n})\n\n-- Creates a Model that resembles the Studio Model icon\nlocal modelIconModel = createInstanceTree({\n\tclassName = \"Model\",\n\tproperties = {\n\t\tName = \"ModelIcon\",\n\t},\n\tchildren = {\n\t\t{\n\t\t\tclassName = \"Part\",\n\t\t\tproperties = {\n\t\t\t\tName = \"BluePart\",\n\t\t\t\tSize = Vector3.new(4, 4, 4),\n\t\t\t\tColor = Color3.new(0, 0, 1),\n\t\t\t\tPosition = Vector3.new(10, 4, -10),\n\t\t\t\tAnchored = true,\n\t\t\t\tTopSurface = Enum.SurfaceType.Smooth,\n\t\t\t\tBottomSurface = Enum.SurfaceType.Smooth,\n\t\t\t},\n\t\t},\n\t\t{\n\t\t\tclassName = \"Part\",\n\t\t\tproperties = {\n\t\t\t\tName = \"RedPart\",\n\t\t\t\tSize = Vector3.new(4, 4, 4),\n\t\t\t\tColor = Color3.new(1, 0, 0),\n\t\t\t\tPosition = Vector3.new(14, 4, -10),\n\t\t\t\tAnchored = true,\n\t\t\t\tTopSurface = Enum.SurfaceType.Smooth,\n\t\t\t\tBottomSurface = Enum.SurfaceType.Smooth,\n\t\t\t},\n\t\t},\n\t\t{\n\t\t\tclassName = \"Part\",\n\t\t\tproperties = {\n\t\t\t\tName = \"YellowPart\",\n\t\t\t\tSize = Vector3.new(4, 4, 4),\n\t\t\t\tColor = Color3.new(1, 1, 0),\n\t\t\t\tPosition = Vector3.new(12, 8, -10),\n\t\t\t\tAnchored = true,\n\t\t\t\tTopSurface = Enum.SurfaceType.Smooth,\n\t\t\t\tBottomSurface = Enum.SurfaceType.Smooth,\n\t\t\t},\n\t\t},\n\t},\n})\n\nsphere.Parent = Workspace\nmodelIconModel.Parent = Workspace\n",
+      "focus": {
+        "script": {
+          "path": "Workspace.CreateInstanceTree.Demo.DemoScript"
+        }
+      }
+    },
+    {
+      "id": "s6-playtest",
+      "type": "narrative",
+      "body": "Press \u25b6 Play (or F5) to see the sample run in-place. Shift+F5 to stop. Inspect `Workspace.CreateInstanceTree` in the Explorer to see the assembled result."
+    }
+  ]
+}
