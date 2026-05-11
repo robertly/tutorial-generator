@@ -270,14 +270,11 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 
 	local prevBtn = makeBtn("Prev", "◀ Prev", 1)
 	local nextBtn = makeBtn("Next", "Next ▶", 2)
-	local autoBtn = makeBtn("Auto", "▶ Auto", 3)
-	local resetBtn = makeBtn("Reset", "Reset", 4)
+	local resetBtn = makeBtn("Reset", "Reset", 3)
 
 	-- ---- State + render --------------------------------------------------
 	local currentIndex = 0
 	local undoStack: { () -> () } = {}
-	local autoRunning = false
-	local AUTO_SECONDS = 2.5
 	-- Forward-declared so render() can see it; actually populated further
 	-- down once the strip's scrolling frame exists.
 	local stripButtons: { TextButton } = {}
@@ -408,12 +405,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 		end)
 	end
 
-	local function stopAutoplay()
-		autoRunning = false
-		autoBtn.Text = "▶ Auto"
-		autoBtn.BackgroundColor3 = ROW
-	end
-
 	-- Build the step strip once (stripButtons and typeColor forward-declared above).
 	for i, step in ipairs(lesson.steps) do
 		local btn = Instance.new("TextButton")
@@ -453,7 +444,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	-- Implemented as replay-from-current-state: undo down to target or
 	-- apply up to target, never both, so this is linear in the delta.
 	scrubTo = function(target: number)
-		stopAutoplay()
 		target = math.max(0, math.min(target, #lesson.steps))
 		while currentIndex > target do
 			local undoFn = undoStack[currentIndex]
@@ -474,7 +464,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end
 
 	nextBtn.Activated:Connect(function()
-		stopAutoplay()
 		if currentIndex >= #lesson.steps then
 			focusViewport()
 			return
@@ -486,7 +475,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end)
 
 	prevBtn.Activated:Connect(function()
-		stopAutoplay()
 		if currentIndex <= 0 then return end
 		local undoFn = undoStack[currentIndex]
 		if undoFn then
@@ -501,7 +489,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 	end)
 
 	resetBtn.Activated:Connect(function()
-		stopAutoplay()
 		while currentIndex > 0 do
 			local undoFn = undoStack[currentIndex]
 			if undoFn then pcall(undoFn) end
@@ -509,37 +496,6 @@ local function showLesson(parent: GuiObject, lesson, onBack: () -> ())
 			currentIndex -= 1
 		end
 		render()
-	end)
-
-	autoBtn.Activated:Connect(function()
-		if autoRunning then
-			stopAutoplay()
-			return
-		end
-		autoRunning = true
-		autoBtn.Text = "⏸ Pause"
-		autoBtn.BackgroundColor3 = Color3.fromRGB(150, 120, 70)
-		task.spawn(function()
-			while autoRunning do
-				if currentIndex >= #lesson.steps then
-					stopAutoplay()
-					focusViewport()
-					return
-				end
-				-- Pause before prompt steps — they need reader action.
-				local nextStep = lesson.steps[currentIndex + 1]
-				if nextStep and nextStep.type == "prompt" then
-					stopAutoplay()
-					return
-				end
-				task.wait(AUTO_SECONDS)
-				if not autoRunning then return end
-				if not applyNext() then
-					stopAutoplay()
-					return
-				end
-			end
-		end)
 	end)
 
 	render()
